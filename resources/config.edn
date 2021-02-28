@@ -1,0 +1,15 @@
+{
+ ;; there are some commented parameters that can be used instead if you want
+ ;; to subscribe to and trade crypto
+
+ :polygon-api-key "<YOUR KEY HERE>"
+ :polygon-api-base "https://api.polygon.io"
+ :cluster "wss://socket.polygon.io/stocks" ;; stocks cluster
+ ;:cluster "wss://socket.polygon.io/crypto" ;; crypto cluster
+
+ :ws-timeout-ms 5000 ;; timeout to wait before attempting to reconnect
+
+ ;; case-insensitive collection of symbols (strings or keywords are fine)
+ :symbols [:AAPL :MSFT :AMZN :GOOG :FB :TSLA :JPM :WMT :NVDA :PYPL]
+ ;:symbols [:BTC-USD]
+ }
