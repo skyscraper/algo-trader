@@ -84,7 +84,7 @@
   "handle quote - currently just calculates delay from current time and sends to statsd."
   [{:keys [t sym]}]
   (let [l (list sym)]
-    (statsd/count :trade 1 l)
+    (statsd/count :quote 1 l)
     (let [ts (System/currentTimeMillis)
           md-delay (- ts t)]
       (statsd/distribution :quote-delay md-delay nil)
