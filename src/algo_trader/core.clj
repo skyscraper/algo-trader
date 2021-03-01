@@ -111,6 +111,8 @@
   (reset-polygon!)
   (reset! symbols (map uc-kw (:symbols config)))
   (log/info "Today we will be trading:" (join ", " (map name @symbols)))
+  (alter-var-root #'trade-channels merge (generate-channel-map @symbols))
+  (alter-var-root #'quote-channels merge (generate-channel-map @symbols))
   (log/info "Starting md handlers...")
   (start-md-handlers handle-trade trade-channels)
   (start-md-handlers handle-quote quote-channels)
