@@ -114,8 +114,11 @@
   (log/info "Starting md handlers...")
   (start-md-handlers handle-trade trade-channels)
   (start-md-handlers handle-quote quote-channels)
+  (start-md-distributor)
+  (start-md-main)
   (log/info "Subscribing to market data...")
   (api/polygon-subscribe polygon-ws-conn @symbols)
+  (log/info "Started!")
   (.await signal))
 
 (defn -main
