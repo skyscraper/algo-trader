@@ -17,6 +17,7 @@
 (def distribution-chan (chan 1000))
 (def trade-channels {})
 (def quote-channels {})
+(def signal (java.util.concurrent.CountDownLatch. 1))
 
 (defn reset-polygon!
   "reset polygon ws connection"
@@ -114,7 +115,8 @@
   (start-md-handlers handle-trade trade-channels)
   (start-md-handlers handle-quote quote-channels)
   (log/info "Subscribing to market data...")
-  (api/polygon-subscribe polygon-ws-conn @symbols))
+  (api/polygon-subscribe polygon-ws-conn @symbols)
+  (.await signal))
 
 (defn -main
   [& args]
