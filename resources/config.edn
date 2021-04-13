@@ -1,15 +1,55 @@
 {
- ;; there are some commented parameters that can be used instead if you want
- ;; to subscribe to and trade crypto
+ ;; ftx config
+ :ftx-api-key "<YOUR API KEY>"
+ :ftx-secret-key "<YOUR SECRET KEY>"
+ ;; use these two connections if not in the US
+ :ftx-ws "wss://ftx.com/ws/"
+ :ftx-api "https://ftx.com/api"
+ ;; use these two connections if in the US - spot only, no futures :(
+ :ftx-ws-us "wss://ftx.us/ws/"
+ :ftx-api-us "https://ftx.us/api"
 
- :polygon-api-key "<YOUR KEY HERE>"
- :polygon-api-base "https://api.polygon.io"
- :cluster "wss://socket.polygon.io/stocks" ;; stocks cluster
- ;:cluster "wss://socket.polygon.io/crypto" ;; crypto cluster
+ :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
- :ws-timeout-ms 5000 ;; timeout to wait before attempting to reconnect
+ ;; case-insensitive map of symbols (strings or keywords are fine) to target bar size
+ :target-amts
+ {
+  :BTC-PERP 680000.0
+  :ETH-PERP 300000.0
+  :BNB-PERP 300000.0
+  :XRP-PERP 115000.0
+  :FTT-PERP  80000.0
+  :LTC-PERP  73000.0
+  :TRX-PERP  72500.0
+  :ADA-PERP  43000.0
+  :SOL-PERP  34500.0
+  :DOT-PERP  19000.0
+  }
+ :weights ;; portfolio optimized weights for each fc, hardcoded for now
+ {
+  :BTC-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :ETH-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :BNB-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :XRP-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :FTT-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :LTC-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :TRX-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :ADA-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :SOL-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :DOT-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  }
 
- ;; case-insensitive collection of symbols (strings or keywords are fine)
- :symbols [:AAPL :MSFT :AMZN :GOOG :FB :TSLA :JPM :WMT :NVDA :PYPL]
- ;:symbols [:BTCUSD :ETHUSD :ADAUSD]
+ ;; model params
+ :bar-count 10 ;; min bars
+ :vol-span 35
+ :imbalance-pct 0.25
+ :window-start 5.0
+ :num-windows 10 ;; implication is that there will be 4 less forecasts than this number
+ :scale-mult 10.0 ;; multiplier for scaling decay
+
+ ;; trade params
+ :scale-target-percent 0.0004 ;; E[abs(pos size)] = this percent * max pos size PRE-VOL SCALE
+ :max-pos-notional 30000.0 ;; hard max for position notional
+ :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
+ :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)
  }

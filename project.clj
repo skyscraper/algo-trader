@@ -5,8 +5,11 @@
             :url "http://opensource.org/licenses/MIT"
             :distribution :repo}
   :dependencies [[aleph "0.4.7-alpha7"]
+                 [ch.qos.logback/logback-classic "1.2.3"]
                  [cheshire "5.10.0"]
+                 [clojure.java-time "0.3.2"]
                  [com.datadoghq/java-dogstatsd-client "2.11.0"]
+                 [commons-codec/commons-codec "1.15"]
                  [org.clojure/clojure "1.10.3"]
                  [org.clojure/core.async "1.3.610"]
                  [org.clojure/tools.logging "1.1.0"]]

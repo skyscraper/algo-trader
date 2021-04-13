@@ -1,34 +1,60 @@
 (ns algo-trader.api
   (:require [aleph.http :as http]
-            [algo-trader.config :refer [config trade-event quote-event]]
-            [cheshire.core :refer [generate-string parse-string]]
-            [clojure.string :refer [join upper-case]]
-            [clojure.tools.logging :as log]
-            [manifold.stream :as s]))
+            [algo-trader.config :refer [config]]
+            [cheshire.core :refer [generate-string]]
+            [clojure.core.async :refer [<! go-loop timeout]]
+            [manifold.stream :as s])
+  (:import (javax.crypto Mac)
+           (javax.crypto.spec SecretKeySpec)
+           (org.apache.commons.codec.binary Hex)))
 
-(defn polygon-websocket [cluster]
-  (let [conn @(http/websocket-client cluster {:epoll? true})]
-    (log/info (:message (first (parse-string @(s/take! conn) true))))
-    (s/put! conn (generate-string {:action :auth :params (:polygon-api-key config)}))
-    (log/info (:message (first (parse-string @(s/take! conn) true))))
+(def algo "HmacSHA256")
+(def fmt "UTF-8")
+(def signing-key (SecretKeySpec. (.getBytes (:ftx-secret-key config) fmt) algo))
+(def ping (generate-string {:op :ping}))
+(def ws-str "%swebsocket_login")
+(def api-str "%s%s%s%s")
+
+(defn hmac
+  "Calculate HMAC signature for given data."
+  [^String data]
+  (let [mac (doto (Mac/getInstance algo) (.init signing-key))]
+    (Hex/encodeHexString (.doFinal mac (.getBytes data fmt)))))
+
+(defn ping-loop [conn]
+  (go-loop []
+    (<! (timeout 15000))
+    (when @(s/put! conn ping)
+      (recur))))
+
+(defn ws-sig [ts]
+  (format ws-str ts))
+
+(defn api-sig [ts method path body]
+  (format api-str ts method path body))
+
+(defn ftx-websocket [url]
+  (let [conn @(http/websocket-client url {:epoll? true})]
+    (ping-loop conn)
     conn))
 
-(defn symbol-str [syms]
-  (->> syms
-       (map #(format "%1$s.%3$s,%2$s.%3$s"
-                     (name trade-event)
-                     (name quote-event)
-                     (upper-case (name %))))
-       (join ",")))
+(defn ftx-login [conn]
+  (let [now (System/currentTimeMillis)
+        sig (hmac (ws-sig now))]
+    (s/put! conn (generate-string {:op :login
+                                   :args {:key (:ftx-api-key config)
+                                          :sign sig
+                                          :time now}}))))
 
-(defn- polygon-subscription-manage [conn syms action]
-  (->> (symbol-str syms)
-       (assoc {:action action} :params)
-       generate-string
-       (s/put! conn)))
+(defn- ftx-subscription-manage [conn chan pair op]
+  (s/put! conn (generate-string {:op op :channel chan :market pair})))
 
-(defn polygon-subscribe [conn syms]
-  (polygon-subscription-manage conn syms :subscribe))
+(defn ftx-subscribe [conn chan pair]
+  (ftx-subscription-manage conn chan pair :subscribe))
 
-(defn polygon-unsubscribe [conn syms]
-  (polygon-subscription-manage conn syms :unsubscribe))
+(defn ftx-unsubscribe [conn chan pair]
+  (ftx-subscription-manage conn chan pair :unsubscribe))
+
+(defn ftx-subscribe-all [conn chan pairs]
+  (doseq [pair pairs]
+    (ftx-subscribe conn chan pair)))

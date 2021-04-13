@@ -1,23 +1,35 @@
 (ns algo-trader.config
-  (:require [clojure.edn :as edn]
-            [clojure.string :refer [includes?]]))
+  (:require [clojure.edn :as edn]))
 
-(def config (edn/read-string (slurp "resources/config.edn")))
+(def config
+  (let [c (edn/read-string (slurp "resources/config.edn"))]
+    (assoc c :pairs (vec (keys (:target-amts c))))))
 
-(def instrument
-  (cond
-    (includes? (:cluster config) "stocks") :stocks
-    (includes? (:cluster config) "crypto") :crypto
-    :else nil)) ;; polygon also has forex, but didn't implement that for now
+;; pre-calculating some values for repeated volatility calcs...
+(def vol-alpha (/ 2.0 (inc (:vol-span config))))
+(def diff-alpha (- 1.0 vol-alpha))
+(def vol-weights (take (:vol-span config) (iterate #(* % diff-alpha) 1.0)))
+(def sum-weights (apply + vol-weights))
 
-(def trade-event
-  (condp = instrument
-    :stocks :T
-    :crypto :XT
-    nil))
+;; windows to calculate
+(def windows
+  (let [s2 (Math/sqrt 2)]
+    (->> (:window-start config)
+         (iterate #(* % s2))
+         (take (:num-windows config))
+         vec)))
 
-(def quote-event
-  (condp = instrument
-    :stocks :Q
-    :crypto :XQ
-    nil))
+;; ewm decay for windows
+(def window-alphas
+  (mapv
+   (fn [w] (/ 2.0 (inc w)))
+   windows))
+
+;; ewm decay for scale factors
+(def scale-alphas
+  (mapv
+   (fn [w] (/ 2.0 (* w (:scale-mult config))))
+   windows))
+
+(def fc-window-delta 4) ;; this is because we are jumping by sqrt(2)
+(def fc-count (- (:num-windows config) fc-window-delta))
