@@ -12,6 +12,15 @@
 (defn initialize-equity [eq]
   (reset! equity eq))
 
+(defn initialize-positions [markets]
+  (alter-var-root
+   #'positions
+   #(reduce
+    (fn [acc x]
+      (assoc acc x (atom {:cash 10000.0 :shares 0.0 :port-val 10000.0})))
+    %
+    markets)))
+
 (defn get-max-notional [equity n-markets]
   (let [eq (/ (* 0.95 equity) n-markets)] ;; divide 95% of equity evenly
     (min (:max-pos-notional config) eq))) ;; take min of split and hard limit

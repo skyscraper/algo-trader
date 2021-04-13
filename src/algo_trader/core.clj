@@ -110,6 +110,7 @@
     (log/info (format "max notional per market: %f" max-pos))
     (log/info (format "expected abs position size, pre-vol scale: %f"
                       (model/set-scale-target max-pos))))
+  (oms/initialize-positions @markets)
   (log/info "Starting OMS handlers...")
   (oms/start-oms-handlers (generate-channel-map @markets))
   (log/info "Starting market data handlers...")
