@@ -3,7 +3,7 @@
 
 (def config
   (let [c (edn/read-string (slurp "resources/config.edn"))]
-    (assoc c :pairs (vec (keys (:target-amts c))))))
+    (assoc c :markets (vec (keys (:target-amts c))))))
 
 ;; pre-calculating some values for repeated volatility calcs...
 (def vol-alpha (/ 2.0 (inc (:vol-span config))))

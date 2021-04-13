@@ -12,7 +12,7 @@
             [manifold.deferred :refer [timeout!]]
             [manifold.stream :refer [take!]]))
 
-(def pairs (atom {}))
+(def markets (atom {}))
 (def ftx-ws-conn nil)
 (def active? (atom true))
 (def ws-timeout (:ws-timeout-ms config))
@@ -33,18 +33,18 @@
   (log/info "restarting ftx")
   (.close ftx-ws-conn)
   (reset-ftx!)
-  (api/ftx-subscribe-all ftx-ws-conn :trades @pairs))
+  (api/ftx-subscribe-all ftx-ws-conn :trades @markets))
 
 (defn uc-kw
   "upper-case keyword"
   [kw-or-str]
   (-> kw-or-str name upper-case keyword))
 
-(defn generate-channel-map [symbols]
+(defn generate-channel-map [markets]
   (reduce
    #(assoc %1 (uc-kw %2) (chan 1000))
    {}
-   symbols))
+   markets))
 
 (defn start-md-main
   "Main consumer for ftx messages"
@@ -100,22 +100,24 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
-  (reset! pairs (map uc-kw (:pairs config)))
-  (log/info "Today we will be trading:" (join ", " (map name @pairs)))
-  (alter-var-root #'trade-channels merge (generate-channel-map @pairs))
+  (reset! markets (map uc-kw (:markets config)))
+  (log/info "Today we will be trading:" (join ", " (map name @markets)))
+  (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
   (model/initialize (:target-amts config))
   (oms/initialize-equity 100000.0) ;; hardcoding for now
-  (let [max-pos (oms/determine-notionals @pairs)]
-    (log/info (format "max notional per pair: %f" max-pos))
+  (let [max-pos (oms/determine-notionals @markets)]
+    (log/info (format "max notional per market: %f" max-pos))
     (log/info (format "expected abs position size, pre-vol scale: %f"
                       (model/set-scale-target max-pos))))
-  (log/info "Starting md handlers...")
+  (log/info "Starting OMS handlers...")
+  (oms/start-oms-handlers (generate-channel-map @markets))
+  (log/info "Starting market data handlers...")
   (start-md-handlers model/handle-trade trade-channels)
   (start-md-distributor)
   (start-md-main)
   (log/info "Subscribing to market data...")
-  (api/ftx-subscribe-all ftx-ws-conn :trades @pairs)
+  (api/ftx-subscribe-all ftx-ws-conn :trades @markets)
   (log/info "Started!")
   (.await signal))
 

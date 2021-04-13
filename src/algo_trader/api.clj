@@ -46,15 +46,15 @@
                                           :sign sig
                                           :time now}}))))
 
-(defn- ftx-subscription-manage [conn chan pair op]
-  (s/put! conn (generate-string {:op op :channel chan :market pair})))
+(defn- ftx-subscription-manage [conn chan market op]
+  (s/put! conn (generate-string {:op op :channel chan :market market})))
 
-(defn ftx-subscribe [conn chan pair]
-  (ftx-subscription-manage conn chan pair :subscribe))
+(defn ftx-subscribe [conn chan market]
+  (ftx-subscription-manage conn chan market :subscribe))
 
-(defn ftx-unsubscribe [conn chan pair]
-  (ftx-subscription-manage conn chan pair :unsubscribe))
+(defn ftx-unsubscribe [conn chan market]
+  (ftx-subscription-manage conn chan market :unsubscribe))
 
-(defn ftx-subscribe-all [conn chan pairs]
-  (doseq [pair pairs]
-    (ftx-subscribe conn chan pair)))
+(defn ftx-subscribe-all [conn chan markets]
+  (doseq [market markets]
+    (ftx-subscribe conn chan market)))

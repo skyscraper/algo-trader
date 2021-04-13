@@ -1,9 +1,10 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config fc-count scale-alphas]]
+            [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product ewm-vol ewm-step epoch]]
-            [clojure.tools.logging :as log]))
+            [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
 (def scale-target (atom 0.0))
@@ -14,7 +15,7 @@
 (def scales (reduce
              (fn [m k] (assoc m k (clean-scales)))
              {}
-             (:pairs config)))
+             (:markets config)))
 (def weights (:weights config))
 (def no-result [0.0 false])
 (def model-data {})
@@ -23,8 +24,8 @@
   (reset! scale-target (* (:scale-target-percent config) max-pos)))
 
 (defn initialize [target-amts]
-  (doseq [[pair target] target-amts]
-    (alter-var-root #'model-data assoc pair (atom (bars/bar-base target)))))
+  (doseq [[market target] target-amts]
+    (alter-var-root #'model-data assoc market (atom (bars/bar-base target)))))
 
 (defn update-forecast-scale!
   "updates ewm values for forecast scaling"
@@ -57,22 +58,25 @@
       (if (> (count (:bars @data)) bar-count)
         (do
           (swap! data update :bars #(take bar-count %))
-          (let [target (predict market (:ewmacs @data) (map :rtn (:bars @data)))]
-            [target true]))
+          [(predict market (:ewmacs @data) (map :rtn (:bars @data))) true])
         no-result))
     no-result))
-
-
 
 (defn handle-trade [{:keys [market data]}]
   (let [now (System/currentTimeMillis)
         l (list market)]
-    (doseq [{:keys [time] :as trade} data]
+    (doseq [{:keys [price time] :as trade} data]
       (statsd/count :trade 1 l)
-      (let [[target real?] (update-and-predict! market (update trade :side keyword))
-            trade-delay (- now (epoch time))]
+      (let [trade (update trade :side keyword)
+            [target real?] (update-and-predict! market trade)
+            trade-time (epoch time)
+            trade-delay (- now trade-time)]
         (statsd/distribution :trade-delay trade-delay nil)
         (when real?
-          (log/info (format "SIGNAL: %s target notional position: %s @ %s" market target now))
-          ;; todo: send target to oms channel
-          )))))
+          (put! (market oms-channels)
+                {:msg-type :target
+                 :market market
+                 :price price
+                 :target target
+                 :side (:side trade)
+                 :ts trade-time}))))))
