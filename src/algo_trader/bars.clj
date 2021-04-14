@@ -1,6 +1,6 @@
 (ns algo-trader.bars
   (:require [algo-trader.config :refer [config window-alphas fc-window-delta]]
-            [algo-trader.utils :refer [ewm-step log-rtn]]))
+            [algo-trader.utils :refer [ewm-step]]))
 
 (def base {:amt 0.0 :imb 0.0})
 
@@ -26,7 +26,7 @@
       (let [{:keys [c] :or {c price}} (last bars)
             new-ewms (map #(ewm-step %1 price %2) ewms window-alphas)
             new-ewmacs (map - new-ewms (drop fc-window-delta new-ewms))
-            new-bar (assoc updated :rtn (log-rtn c price))]
+            new-bar (assoc updated :diff (- price c))]
         (assoc (update acc :bars conj new-bar)
                :current base
                :ewms new-ewms

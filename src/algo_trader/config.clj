@@ -10,26 +10,26 @@
 (def diff-alpha (- 1.0 vol-alpha))
 (def vol-weights (take (:vol-span config) (iterate #(* % diff-alpha) 1.0)))
 (def sum-weights (apply + vol-weights))
+(def jump (Math/sqrt 2))
+(def fc-window-delta (long (Math/pow jump 2)))
+(def fc-count (- (:num-windows config) fc-window-delta))
 
 ;; windows to calculate
 (def windows
-  (let [s2 (Math/sqrt 2)]
-    (->> (:window-start config)
-         (iterate #(* % s2))
-         (take (:num-windows config))
-         vec)))
+  (->> (:window-start config)
+       (iterate #(* % jump))
+       (take (:num-windows config))
+       vec))
+
+(defn get-alpha [x]
+  (/ 2.0 (inc x)))
 
 ;; ewm decay for windows
 (def window-alphas
-  (mapv
-   (fn [w] (/ 2.0 (inc w)))
-   windows))
+  (mapv get-alpha windows))
 
-;; ewm decay for scale factors
+;; ewm decay for forecast scaling factors
 (def scale-alphas
   (mapv
-   (fn [w] (/ 2.0 (* w (:scale-mult config))))
-   windows))
-
-(def fc-window-delta 4) ;; this is because we are jumping by sqrt(2)
-(def fc-count (- (:num-windows config) fc-window-delta))
+   (fn [w] (get-alpha (* w (:scale-mult config))))
+   (take fc-count windows)))

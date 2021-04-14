@@ -27,28 +27,28 @@
   }
  :weights ;; portfolio optimized weights for each fc, hardcoded for now
  {
-  :BTC-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :ETH-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :BNB-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :XRP-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :FTT-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :LTC-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :TRX-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :ADA-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :SOL-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
-  :DOT-PERP [0.1666 0.1666 0.1666 0.1666 0.1666 0.1666]
+  :BTC-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :ETH-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :BNB-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :XRP-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :FTT-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :LTC-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :TRX-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :ADA-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :SOL-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
+  :DOT-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
   }
 
  ;; model params
  :bar-count 10 ;; min bars
  :vol-span 35
  :imbalance-pct 0.25
- :window-start 5.0
- :num-windows 10 ;; implication is that there will be 4 less forecasts than this number
+ :window-start 8.0
+ :num-windows 12 ;; implication is that there will be 4 less forecasts than this number
  :scale-mult 10.0 ;; multiplier for scaling decay
 
  ;; trade params
- :scale-target-percent 0.0004 ;; E[abs(pos size)] = this percent * max pos size PRE-VOL SCALE
+ :scale-target-percent 0.2 ;; E[abs(pos size)] = this percent * max pos size PRE-VOL SCALE
  :max-pos-notional 30000.0 ;; hard max for position notional
  :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
  :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)

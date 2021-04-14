@@ -7,7 +7,7 @@
             [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
-(def scale-target (atom 0.0))
+(def scale-target 0.0)
 (defn default-scale []
   (atom {:mean nil :scale nil}))
 (defn clean-scales []
@@ -21,44 +21,51 @@
 (def model-data {})
 
 (defn set-scale-target [max-pos]
-  (reset! scale-target (* (:scale-target-percent config) max-pos)))
+  (alter-var-root #'scale-target (constantly (* (:scale-target-percent config) max-pos))))
 
 (defn initialize [target-amts]
-  (doseq [[market target] target-amts]
-    (alter-var-root #'model-data assoc market (atom (bars/bar-base target)))))
+  (let [m-data (reduce-kv
+                (fn [acc market target]
+                  (assoc acc market (atom (bars/bar-base target))))
+                {}
+                target-amts)]
+    (alter-var-root #'model-data merge m-data)))
 
-(defn update-forecast-scale!
-  "updates ewm values for forecast scaling"
-  [idx scale-data forecast scale-target]
-  (let [alpha (nth scale-alphas idx)]
-    (swap! scale-data
-           (fn [{:keys [mean]}]
-             (let [new-mean (ewm-step mean (Math/abs forecast) alpha)
-                   new-scale (/ scale-target new-mean)]
-               {:mean new-mean :scale new-scale})))))
+(defn update-and-get-forecast-scale!
+  "update raw forecast scaling values and return latest scale"
+  [market idx raw-forecast]
+  (:scale
+   (swap!
+    (get-in scales [market idx])
+    (fn [{:keys [mean]}]
+      (let [new-mean (ewm-step mean (Math/abs raw-forecast) (nth scale-alphas idx))
+            new-scale (/ scale-target new-mean)]
+        {:mean new-mean :scale new-scale})))))
 
-(defn predict [market ewmacs rtns]
-  (let [vol (ewm-vol rtns)
-        unscaled (map #(/ % vol) ewmacs) ;; current condition scaling
-        scaled (doall ;; eagerly scale & update ewm
-                (map-indexed
-                 (fn [idx fc]
-                   (let [scale-data (get-in scales [market idx])
-                         scale (:scale @scale-data)]
-                     (update-forecast-scale! idx scale-data fc @scale-target)
-                     ;; scale AND divide by sigma again
-                     (/ (* fc (or scale (:scale @scale-data))) vol)))
-                 unscaled))]
-    (dot-product scaled (market weights)))) ;; portfolio weightings
+(defn predict-single
+  "get prediction for a single window of a market"
+  [market vol idx ewmac]
+  (let [raw-fc (/ ewmac vol) ;; current condition scaling
+        scale (update-and-get-forecast-scale! market idx raw-fc)]
+    (/ (* raw-fc scale) vol))) ;; scale AND divide by sigma again
 
-(defn update-and-predict! [market trade]
+(defn predict
+  "get combined prediction for a market"
+  [market {:keys [ewmacs bars]}]
+  (let [vol (ewm-vol (map :diff bars))
+        forecasts (map-indexed
+                   (fn [idx ewmac] (predict-single market vol idx ewmac))
+                   ewmacs)]
+    (dot-product forecasts (market weights)))) ;; portfolio weightings
+
+(defn update-and-predict!
+  "update model data and generate prediction"
+  [market trade]
   (if-let [data (market model-data)]
     (do
       (swap! data bars/add-to-bars trade)
       (if (> (count (:bars @data)) bar-count)
-        (do
-          (swap! data update :bars #(take bar-count %))
-          [(predict market (:ewmacs @data) (map :rtn (:bars @data))) true])
+        [(predict market (swap! data update :bars #(take bar-count %))) true]
         no-result))
     no-result))
 
