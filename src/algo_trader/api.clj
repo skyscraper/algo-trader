@@ -1,8 +1,11 @@
 (ns algo-trader.api
   (:require [aleph.http :as http]
+            [byte-streams :as bs]
             [algo-trader.config :refer [config]]
-            [cheshire.core :refer [generate-string]]
+            [algo-trader.utils :refer [epoch]]
+            [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
+            [clojure.set :refer [union]]
             [manifold.stream :as s])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)
@@ -58,3 +61,32 @@
 (defn ftx-subscribe-all [conn chan markets]
   (doseq [market markets]
     (ftx-subscribe conn chan market)))
+
+(defn ftx-get [path params]
+  (http/get (str (:ftx-api config) path)
+            {:query-params params}))
+
+(defn ftx [path params]
+  (-> @(ftx-get path params)
+      :body
+      bs/to-string
+      (parse-string true)))
+
+;; epochs here are in SECONDS
+(defn fetch-historical-trades [market end-ts lookback-days]
+  (let [path (format "/markets/%s/trades" (name market))
+        limit 100 ;; current ftx max
+        start-ts (- end-ts (* lookback-days 24 60 60))
+        params {:start_time start-ts
+                :limit limit}
+        unsorted
+        (loop [results [] ids #{} next-end end-ts]
+          (let [trades (:result (ftx path (assoc params :end_time next-end)))
+                filtered (remove #(ids (:id %)) trades)
+                updated (concat results filtered)]
+            (if (< (count trades) limit)
+              updated
+              (recur updated
+                     (union ids (set (map :id filtered)))
+                     (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades)))))]
+    (sort-by :time unsorted)))
