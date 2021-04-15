@@ -21,12 +21,12 @@
 (def model-data {})
 
 (defn set-scale-target [max-pos]
-  (alter-var-root #'scale-target (constantly (* (:scale-target-percent config) max-pos))))
+  (alter-var-root #'scale-target (constantly (* (:scale-target config) max-pos))))
 
 (defn initialize [target-amts]
   (let [m-data (reduce-kv
-                (fn [acc market target]
-                  (assoc acc market (atom (bars/bar-base target))))
+                (fn [acc market _]
+                  (assoc acc market (atom bars/bar-base)))
                 {}
                 target-amts)]
     (alter-var-root #'model-data merge m-data)))

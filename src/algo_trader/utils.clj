@@ -1,7 +1,10 @@
 (ns algo-trader.utils
   (:require [algo-trader.config :refer [config vol-weights sum-weights]]
+            [clojure.core.async :refer [chan]]
+            [clojure.string :refer [upper-case]]
             [java-time :refer [instant zoned-date-time]]))
 
+;;; math ;;;
 (defn log-rtn [p1 p2]
   (Math/log (/ p2 p1)))
 
@@ -36,10 +39,25 @@
     observed
     (+ (* alpha observed) (* (- 1.0 alpha) previous))))
 
+;;; seq ;;;
 (defn roll-seq
   "adds new value to head, takes first l"
   [xs x l]
   (take l (conj xs x)))
 
+;;; time ;;;
 (defn epoch [dt-str]
   (.toEpochMilli (instant (zoned-date-time dt-str))))
+
+;;; keywords/naming ;;;
+(defn uc-kw
+  "upper-case keyword"
+  [kw-or-str]
+  (-> kw-or-str name upper-case keyword))
+
+;;; core.async ;;;
+(defn generate-channel-map [markets]
+  (reduce
+   #(assoc %1 (uc-kw %2) (chan 1000))
+   {}
+   markets))

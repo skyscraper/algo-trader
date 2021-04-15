@@ -5,9 +5,10 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
+            [algo-trader.utils :refer [uc-kw generate-channel-map]]
             [cheshire.core :refer [parse-string]]
             [clojure.core.async :refer [<! >! chan go-loop]]
-            [clojure.string :refer [join upper-case]]
+            [clojure.string :refer [join]]
             [clojure.tools.logging :as log]
             [manifold.deferred :refer [timeout!]]
             [manifold.stream :refer [take!]]))
@@ -34,17 +35,6 @@
   (.close ftx-ws-conn)
   (reset-ftx!)
   (api/ftx-subscribe-all ftx-ws-conn :trades @markets))
-
-(defn uc-kw
-  "upper-case keyword"
-  [kw-or-str]
-  (-> kw-or-str name upper-case keyword))
-
-(defn generate-channel-map [markets]
-  (reduce
-   #(assoc %1 (uc-kw %2) (chan 1000))
-   {}
-   markets))
 
 (defn start-md-main
   "Main consumer for ftx messages"

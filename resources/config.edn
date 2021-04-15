@@ -40,15 +40,14 @@
   }
 
  ;; model params
- :bar-count 10 ;; min bars
+ :bar-count 20 ;; min bars
  :vol-span 35
- :imbalance-pct 0.25
- :window-start 8.0
+ :window-start 5.0
  :num-windows 12 ;; implication is that there will be 4 less forecasts than this number
  :scale-mult 10.0 ;; multiplier for scaling decay
 
  ;; trade params
- :scale-target-percent 0.2 ;; E[abs(pos size)] = this percent * max pos size PRE-VOL SCALE
+ :scale-target 10.0 ;; E[abs(pos size)] = this value * max pos size PRE-VOL SCALE
  :max-pos-notional 30000.0 ;; hard max for position notional
  :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
  :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)

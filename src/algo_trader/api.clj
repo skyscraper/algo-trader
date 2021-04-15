@@ -6,7 +6,8 @@
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
             [clojure.set :refer [union]]
-            [manifold.stream :as s])
+            [manifold.stream :as s]
+            [taoensso.nippy :as nippy])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)
            (org.apache.commons.codec.binary Hex)))
@@ -72,6 +73,18 @@
       bs/to-string
       (parse-string true)))
 
+(defn fname [market end-ts]
+  (format "resources/%s_%s.npy" (name market) end-ts))
+
+(defn freeze-trades [market end-ts data]
+  (when (and (not (nil? data)) (seq data))
+    (nippy/freeze-to-file (fname market end-ts) data)))
+
+(defn thaw-trades [market end-ts]
+  (try
+    (nippy/thaw-from-file (fname market end-ts))
+    (catch Exception _ nil)))
+
 ;; epochs here are in SECONDS
 (defn fetch-historical-trades [market end-ts lookback-days]
   (let [path (format "/markets/%s/trades" (name market))
@@ -84,9 +97,20 @@
           (let [trades (:result (ftx path (assoc params :end_time next-end)))
                 filtered (remove #(ids (:id %)) trades)
                 updated (concat results filtered)]
+            (println (count trades))
+            (println (count filtered))
+            (println (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades))
             (if (< (count trades) limit)
               updated
               (recur updated
                      (union ids (set (map :id filtered)))
-                     (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades)))))]
-    (sort-by :time unsorted)))
+                     (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades)))))
+        sorted (sort-by :time unsorted)]
+    (freeze-trades market end-ts sorted)
+    sorted))
+
+(defn historical-trades [market end-ts lookback-days]
+  (let [trades (thaw-trades market end-ts)]
+    (if (nil? trades)
+      (fetch-historical-trades market end-ts lookback-days)
+      trades)))
