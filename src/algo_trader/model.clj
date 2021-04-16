@@ -1,6 +1,6 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
-            [algo-trader.config :refer [config fc-count scale-alphas]]
+            [algo-trader.config :refer [config fc-count scale-alpha default-weights]]
             [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product ewm-vol ewm-step epoch]]
@@ -8,14 +8,7 @@
 
 (def bar-count (:bar-count config))
 (def scale-target 0.0)
-(defn default-scale []
-  (atom {:mean nil :scale nil}))
-(defn clean-scales []
-  (vec (repeatedly fc-count default-scale)))
-(def scales (reduce
-             (fn [m k] (assoc m k (clean-scales)))
-             {}
-             (:markets config)))
+(def scales {})
 (def weights (:weights config))
 (def no-result [0.0 false])
 (def model-data {})
@@ -23,13 +16,24 @@
 (defn set-scale-target [max-pos]
   (alter-var-root #'scale-target (constantly (* (:scale-target config) max-pos))))
 
+(defn default-scale []
+  (atom {:mean nil :scale nil}))
+
+(defn clean-scales []
+  (vec (repeatedly fc-count default-scale)))
+
 (defn initialize [target-amts]
   (let [m-data (reduce-kv
                 (fn [acc market target-amt]
                   (assoc acc market (atom (bars/bar-base target-amt))))
                 {}
+                target-amts)
+        s-data (reduce-kv
+                (fn [acc market _] (assoc acc market (clean-scales)))
+                {}
                 target-amts)]
-    (alter-var-root #'model-data merge m-data)))
+    (alter-var-root #'model-data merge m-data)
+    (alter-var-root #'scales merge s-data)))
 
 (defn update-and-get-forecast-scale!
   "update raw forecast scaling values and return latest scale"
@@ -38,7 +42,7 @@
    (swap!
     (get-in scales [market idx])
     (fn [{:keys [mean]}]
-      (let [new-mean (ewm-step mean (Math/abs raw-forecast) (nth scale-alphas idx))
+      (let [new-mean (ewm-step mean (Math/abs raw-forecast) scale-alpha)
             new-scale (/ scale-target new-mean)]
         {:mean new-mean :scale new-scale})))))
 
@@ -56,7 +60,7 @@
         forecasts (map-indexed
                    (fn [idx ewmac] (predict-single market vol idx ewmac))
                    ewmacs)]
-    (dot-product forecasts (market weights)))) ;; portfolio weightings
+    (dot-product forecasts (market weights default-weights)))) ;; portfolio weightings
 
 (defn update-and-predict!
   "update model data and generate prediction"

@@ -11,43 +11,19 @@
 
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
- ;; case-insensitive map of symbols (strings or keywords are fine) to target bar size
- :target-amts
- {
-  :BTC-PERP 680000.0
-  :ETH-PERP 300000.0
-  :BNB-PERP 300000.0
-  :XRP-PERP 115000.0
-  :FTT-PERP  80000.0
-  :LTC-PERP  73000.0
-  :TRX-PERP  72500.0
-  :ADA-PERP  43000.0
-  :SOL-PERP  34500.0
-  :DOT-PERP  19000.0
-  }
- :weights ;; portfolio optimized weights for each fc, hardcoded for now
- {
-  :BTC-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :ETH-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :BNB-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :XRP-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :FTT-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :LTC-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :TRX-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :ADA-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :SOL-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  :DOT-PERP [0.125 0.125 0.125 0.125 0.125 0.125 0.125 0.125]
-  }
+ :weights ;; portfolio optimized weights for each fc, empty for now
+ {}
 
  ;; model params
- :bar-count 20 ;; min bars
+ :bar-count 10 ;; min bars
  :vol-span 35
- :window-start 5.0
+ :window-start 2.0
  :num-windows 12 ;; implication is that there will be 4 less forecasts than this number
  :scale-mult 10.0 ;; multiplier for scaling decay
 
  ;; trade params
- :scale-target 10.0 ;; E[abs(pos size)] = this value * max pos size PRE-VOL SCALE
+ :num-markets 20
+ :scale-target 30.0 ;; E[abs(pos size)] = this value * max pos size PRE-VOL SCALE
  :max-pos-notional 30000.0 ;; hard max for position notional
  :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
  :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)

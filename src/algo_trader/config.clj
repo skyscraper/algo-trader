@@ -1,9 +1,7 @@
 (ns algo-trader.config
   (:require [clojure.edn :as edn]))
 
-(def config
-  (let [c (edn/read-string (slurp "resources/config.edn"))]
-    (assoc c :markets (vec (keys (:target-amts c))))))
+(def config (edn/read-string (slurp "resources/config.edn")))
 
 ;; pre-calculating some values for repeated volatility calcs...
 (def vol-alpha (/ 2.0 (inc (:vol-span config))))
@@ -13,6 +11,8 @@
 (def jump (Math/sqrt 2))
 (def fc-window-delta (long (Math/pow jump 2)))
 (def fc-count (- (:num-windows config) fc-window-delta))
+
+(def default-weights (repeat fc-count (double (/ 1 fc-count))))
 
 ;; windows to calculate
 (def windows
@@ -29,7 +29,5 @@
   (mapv get-alpha windows))
 
 ;; ewm decay for forecast scaling factors
-(def scale-alphas
-  (mapv
-   (fn [w] (get-alpha (* w (:scale-mult config))))
-   (take fc-count windows)))
+(def scale-alpha
+  (get-alpha (* (last windows) (:scale-mult config))))

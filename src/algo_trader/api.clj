@@ -6,6 +6,7 @@
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
             [clojure.set :refer [union]]
+            [clojure.string :refer [includes?]]
             [manifold.stream :as s]
             [taoensso.nippy :as nippy])
   (:import (javax.crypto Mac)
@@ -73,6 +74,18 @@
       bs/to-string
       (parse-string true)))
 
+(defn get-futures-targets []
+  (->> (ftx "/futures" {})
+       :result
+       (filter #(includes? (:name %) "-PERP"))
+       (sort-by :volumeUsd24h)
+       reverse
+       (take (:num-markets config))
+       (reduce
+        (fn [acc {:keys [name volumeUsd24h]}]
+          (assoc acc (keyword name) (/ volumeUsd24h 24.0 60.0)))
+        {})))
+
 (defn fname [market end-ts]
   (format "resources/%s_%s.npy" (name market) end-ts))
 
@@ -97,9 +110,6 @@
           (let [trades (:result (ftx path (assoc params :end_time next-end)))
                 filtered (remove #(ids (:id %)) trades)
                 updated (concat results filtered)]
-            (println (count trades))
-            (println (count filtered))
-            (println (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades))
             (if (< (count trades) limit)
               updated
               (recur updated

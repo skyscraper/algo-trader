@@ -1,6 +1,7 @@
 (ns algo-trader.oms
   (:require [algo-trader.config :refer [config]]
             [algo-trader.statsd :as statsd]
+            [algo-trader.utils :refer [log-rtn]]
             [clojure.core.async :refer [<! go-loop]]))
 
 (def oms-channels {})
@@ -13,12 +14,13 @@
 (defn initialize-equity [eq]
   (reset! equity eq))
 
+(def starting-cash 30000.0)
 (defn initialize-positions [markets]
   (alter-var-root
    #'positions
    #(reduce
     (fn [acc x]
-      (assoc acc x (atom {:cash 30000.0 :shares 0.0 :port-val 30000.0})))
+      (assoc acc x (atom {:cash starting-cash :shares 0.0 :port-val starting-cash})))
     %
     markets)))
 
@@ -37,7 +39,7 @@
       (< abs-notional @min-pos-notional) 0.0
       :else target-notional)))
 
-;; temp crude logic for "live" backtesting - just send estimate of port value to statsd
+;; temp crude logic for "live" backtesting - just send estimate of portfolio rtn to statsd
 (defn handle-target [{:keys [market price target side]} p]
   (let [target (get-bounded-target target)
         {:keys [port-val]}
@@ -65,7 +67,7 @@
                      port-val (+ new-cash (* new-shares slip-price))]
                  {:cash new-cash :shares new-shares :port-val port-val})
                {:cash cash :shares shares :port-val (+ cash (* shares price))}))))]
-    (statsd/gauge :port-val port-val (list market))))
+    (statsd/gauge :port-val (log-rtn starting-cash port-val) (list market))))
 
 (defn handle-oms-data [{:keys [msg-type market] :as msg}]
   (let [p (market positions)]

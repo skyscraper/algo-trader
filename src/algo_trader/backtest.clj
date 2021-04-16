@@ -49,14 +49,13 @@
                {:cash cash :shares shares :port-val (+ cash (* shares price))}))))]
     port-val))
 
-(def test-time 1618445135)
-
 (defn run
   "run a backtest for a single market, outputting portfolio prices for each window"
-  [market]
+  [market test-time]
   (log/info (format "starting backtest for %s" (name market)))
-  (reset! core/markets [market])
-  (model/initialize (select-keys (:target-amts config) [market]))
+  (let [target-amts (select-keys (api/get-futures-targets) [market])]
+    (model/initialize target-amts)
+    (reset! core/markets (keys target-amts)))
   (oms/initialize-equity 100000.0)
   (let [max-pos (oms/determine-notionals @core/markets)]
     (log/info (format "max notional per market: %f" max-pos))
@@ -65,7 +64,7 @@
   (initialize-positions)
   (log/info "fetching trades...")
   (let [bar-count (atom 0)
-        trades (api/historical-trades market test-time 1)
+        trades (api/historical-trades market (or test-time (long (System/currentTimeMillis))) 1)
         data (market model/model-data)]
     (log/info (format "processing %s trades..." (count trades)))
     (with-open [writer (io/writer "resources/backtest.csv")]

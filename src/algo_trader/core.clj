@@ -5,7 +5,7 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [uc-kw generate-channel-map]]
+            [algo-trader.utils :refer [generate-channel-map]]
             [cheshire.core :refer [parse-string]]
             [clojure.core.async :refer [<! >! chan go-loop]]
             [clojure.string :refer [join]]
@@ -13,7 +13,7 @@
             [manifold.deferred :refer [timeout!]]
             [manifold.stream :refer [take!]]))
 
-(def markets (atom {}))
+(def markets (atom nil))
 (def ftx-ws-conn nil)
 (def active? (atom true))
 (def ws-timeout (:ws-timeout-ms config))
@@ -90,11 +90,12 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
-  (reset! markets (map uc-kw (:markets config)))
+  (let [target-amts (api/get-futures-targets)]
+    (model/initialize target-amts)
+    (reset! markets (keys target-amts)))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
-  (model/initialize (:target-amts config))
   (oms/initialize-equity 100000.0) ;; hardcoding for now
   (let [max-pos (oms/determine-notionals @markets)]
     (log/info (format "max notional per market: %f" max-pos))
