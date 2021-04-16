@@ -25,8 +25,8 @@
 
 (defn initialize [target-amts]
   (let [m-data (reduce-kv
-                (fn [acc market _]
-                  (assoc acc market (atom bars/bar-base)))
+                (fn [acc market target-amt]
+                  (assoc acc market (atom (bars/bar-base target-amt))))
                 {}
                 target-amts)]
     (alter-var-root #'model-data merge m-data)))

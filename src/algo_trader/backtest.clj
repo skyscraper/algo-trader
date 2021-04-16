@@ -18,36 +18,35 @@
    (vec
     (repeatedly
      fc-count
-     (fn [] (atom {:cash 10000.0 :shares 0.0 :port-val 10000.0}))))))
+     (fn [] (atom {:cash 30000.0 :shares 0.0 :port-val 30000.0}))))))
 
 (defn update-port! [price target side p]
-  (let [target (if (> target @oms/max-pos-notional)
-                 @oms/max-pos-notional
-                 (if (< target (- @oms/max-pos-notional))
-                   (- @oms/max-pos-notional)
-                   target))
+  (let [target (oms/get-bounded-target target)
         {:keys [port-val]}
-        (swap! p
-               (fn [{:keys [cash shares]}]
-                 (let [pos-mtm (* shares price)
-                       delta-cash (- target pos-mtm)
-                       new-cash (- cash delta-cash)
-                       ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
-                       slip-price (if (pos? delta-cash)
-                                    (if (= :buy side)
-                                      (* price 1.0001)
-                                      (* price 1.0005))
-                                    (if (= :buy side)
-                                      (* price 0.9995)
-                                      (* price 0.9999)))
-                       ;; ftx taker fees are 7bps for lowest tier
-                       my-price (if (pos? delta-cash)
-                                  (* slip-price 1.0007)
-                                  (* slip-price 0.9993))
-                       delta-shares (/ delta-cash my-price)
-                       new-shares (+ shares delta-shares)
-                       port-val (+ cash (* shares slip-price))]
-                   {:cash new-cash :shares new-shares :port-val port-val})))]
+        (swap!
+         p
+         (fn [{:keys [cash shares]}]
+           (let [pos-mtm (* shares price)
+                 delta-cash (- target pos-mtm)]
+             (if (>= (Math/abs delta-cash) @oms/min-order-notional)
+               (let [new-cash (- cash delta-cash)
+                     ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
+                     slip-price (if (pos? delta-cash)
+                                  (if (= :buy side)
+                                    (* price 1.0001)
+                                    (* price 1.0005))
+                                  (if (= :buy side)
+                                    (* price 0.9995)
+                                    (* price 0.9999)))
+                     ;; ftx taker fees are 7bps for lowest tier
+                     my-price (if (pos? delta-cash)
+                                (* slip-price 1.0007)
+                                (* slip-price 0.9993))
+                     delta-shares (/ delta-cash my-price)
+                     new-shares (+ shares delta-shares)
+                     port-val (+ new-cash (* new-shares slip-price))]
+                 {:cash new-cash :shares new-shares :port-val port-val})
+               {:cash cash :shares shares :port-val (+ cash (* shares price))}))))]
     port-val))
 
 (def test-time 1618445135)

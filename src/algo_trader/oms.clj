@@ -6,8 +6,9 @@
 (def oms-channels {})
 (def positions {})
 (def equity (atom 0.0))
-(def max-pos-notional (atom 0.0))
+(def min-order-notional (atom 0.0))
 (def min-pos-notional (atom 0.0))
+(def max-pos-notional (atom 0.0))
 
 (defn initialize-equity [eq]
   (reset! equity eq))
@@ -17,46 +18,53 @@
    #'positions
    #(reduce
     (fn [acc x]
-      (assoc acc x (atom {:cash 10000.0 :shares 0.0 :port-val 10000.0})))
+      (assoc acc x (atom {:cash 30000.0 :shares 0.0 :port-val 30000.0})))
     %
     markets)))
 
-(defn get-max-notional [equity n-markets]
-  (let [eq (/ (* 0.95 equity) n-markets)] ;; divide 95% of equity evenly
-    (min (:max-pos-notional config) eq))) ;; take min of split and hard limit
-
-(defn get-min-notional [max-notional]
-  (* (:min-pos-notional-percent config) max-notional))
-
 (defn determine-notionals [markets]
-  (let [max-notional (get-max-notional @equity (count markets))]
-    (reset! min-pos-notional (get-min-notional max-notional))
+  (let [eq (/ (* 0.95 @equity) (count markets)) ;; divide 95% of equity evenly
+        max-notional (min (:max-pos-notional config) eq)] ;; take min of split and hard limit
+    (reset! min-order-notional (* (:min-order-notional-percent config) max-notional))
+    (reset! min-pos-notional (* (:min-pos-notional-percent config) max-notional))
     (reset! max-pos-notional max-notional))) ;; last to return max
+
+(defn get-bounded-target [target-notional]
+  (let [abs-notional (Math/abs target-notional)
+        op (if (< target-notional 0.0) - +)]
+    (cond
+      (> abs-notional @max-pos-notional) (op @max-pos-notional)
+      (< abs-notional @min-pos-notional) 0.0
+      :else target-notional)))
 
 ;; temp crude logic for "live" backtesting - just send estimate of port value to statsd
 (defn handle-target [{:keys [market price target side]} p]
-  (let [{:keys [port-val]}
-        (swap! p
-               (fn [{:keys [cash shares]}]
-                 (let [pos-mtm (* shares price)
-                       delta-cash (- target pos-mtm)
-                       new-cash (- cash delta-cash)
-                       ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
-                       slip-price (if (pos? delta-cash)
-                                    (if (= :buy side)
-                                      (* price 1.0001)
-                                      (* price 1.0005))
-                                    (if (= :buy side)
-                                      (* price 0.9995)
-                                      (* price 0.9999)))
-                       ;; ftx taker fees are 7bps for lowest tier
-                       my-price (if (pos? delta-cash)
-                                  (* slip-price 1.0007)
-                                  (* slip-price 0.9993))
-                       delta-shares (/ delta-cash my-price)
-                       new-shares (+ shares delta-shares)
-                       port-val (+ cash (* shares slip-price))]
-                   {:cash new-cash :shares new-shares :port-val port-val})))]
+  (let [target (get-bounded-target target)
+        {:keys [port-val]}
+        (swap!
+         p
+         (fn [{:keys [cash shares]}]
+           (let [pos-mtm (* shares price)
+                 delta-cash (- target pos-mtm)]
+             (if (>= (Math/abs delta-cash) @min-order-notional)
+               (let [new-cash (- cash delta-cash)
+                     ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
+                     slip-price (if (pos? delta-cash)
+                                  (if (= :buy side)
+                                    (* price 1.0001)
+                                    (* price 1.0005))
+                                  (if (= :buy side)
+                                    (* price 0.9995)
+                                    (* price 0.9999)))
+                     ;; ftx taker fees are 7bps for lowest tier
+                     my-price (if (pos? delta-cash)
+                                (* slip-price 1.0007)
+                                (* slip-price 0.9993))
+                     delta-shares (/ delta-cash my-price)
+                     new-shares (+ shares delta-shares)
+                     port-val (+ new-cash (* new-shares slip-price))]
+                 {:cash new-cash :shares new-shares :port-val port-val})
+               {:cash cash :shares shares :port-val (+ cash (* shares price))}))))]
     (statsd/gauge :port-val port-val (list market))))
 
 (defn handle-oms-data [{:keys [msg-type market] :as msg}]
