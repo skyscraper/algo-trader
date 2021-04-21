@@ -8,9 +8,10 @@
 (def diff-alpha (- 1.0 vol-alpha))
 (def vol-weights (take (:vol-span config) (iterate #(* % diff-alpha) 1.0)))
 (def sum-weights (apply + vol-weights))
-(def jump (Math/sqrt 2))
-(def fc-window-delta (long (Math/pow jump 2)))
+(def jump 2)
+(def fc-window-delta jump)
 (def fc-count (- (:num-windows config) fc-window-delta))
+(def minutes-in-day (* 24 60))
 
 (def default-weights (repeat fc-count (double (/ 1 fc-count))))
 

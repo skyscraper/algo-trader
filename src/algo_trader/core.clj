@@ -90,6 +90,7 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
+  (model/set-scale-target!)
   (let [target-amts (api/get-futures-targets)]
     (model/initialize target-amts)
     (reset! markets (keys target-amts)))
@@ -98,9 +99,7 @@
   (log/info "Initializing positions...")
   (oms/initialize-equity 100000.0) ;; hardcoding for now
   (let [max-pos (oms/determine-notionals @markets)]
-    (log/info (format "max notional per market: %f" max-pos))
-    (log/info (format "expected abs position size, pre-vol scale: %f"
-                      (model/set-scale-target max-pos))))
+    (log/info (format "max notional per market: %f" max-pos)))
   (oms/initialize-positions @markets)
   (log/info "Starting OMS handlers...")
   (oms/start-oms-handlers (generate-channel-map @markets))

@@ -1,26 +1,28 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
-            [algo-trader.config :refer [config fc-count scale-alpha default-weights]]
+            [algo-trader.config :refer [config default-weights scale-alpha]]
             [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [dot-product ewm-vol ewm-step epoch]]
+            [algo-trader.utils :refer [dot-product clip ewm-vol ewm-step epoch]]
             [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
 (def scale-target 0.0)
 (def scales {})
-(def weights (:weights config))
+(def weights (or (:weights config) default-weights))
+(def fdm (:fdm config))
+(def fc-cap (:scale-cap config))
 (def no-result [0.0 false])
 (def model-data {})
 
-(defn set-scale-target [max-pos]
-  (alter-var-root #'scale-target (constantly (* (:scale-target config) max-pos))))
+(defn set-scale-target! []
+  (alter-var-root #'scale-target (constantly (:scale-target config))))
 
-(defn default-scale []
-  (atom {:mean nil :scale nil}))
+(defn default-scale [starting-scale]
+  (atom {:mean (/ scale-target starting-scale) :scale starting-scale}))
 
 (defn clean-scales []
-  (vec (repeatedly fc-count default-scale)))
+  (mapv default-scale (:starting-scales config)))
 
 (defn initialize [target-amts]
   (let [m-data (reduce-kv
@@ -49,9 +51,10 @@
 (defn predict-single
   "get prediction for a single window of a market"
   [market vol idx ewmac]
-  (let [raw-fc (/ ewmac vol) ;; current condition scaling
-        scale (update-and-get-forecast-scale! market idx raw-fc)]
-    (/ (* raw-fc scale) vol))) ;; scale AND divide by sigma again
+  (let [raw-fc (/ ewmac vol) ;; volatility standardization
+        scale (update-and-get-forecast-scale! market idx raw-fc)
+        scaled-fc (clip fc-cap (* raw-fc scale))]
+    scaled-fc))
 
 (defn predict
   "get combined prediction for a market"
@@ -60,7 +63,9 @@
         forecasts (map-indexed
                    (fn [idx ewmac] (predict-single market vol idx ewmac))
                    ewmacs)]
-    (dot-product forecasts (market weights default-weights)))) ;; portfolio weightings
+    (->> (dot-product weights forecasts)
+         (* fdm)
+         (clip fc-cap))))
 
 (defn update-and-predict!
   "update model data and generate prediction"

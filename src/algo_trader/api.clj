@@ -1,7 +1,7 @@
 (ns algo-trader.api
   (:require [aleph.http :as http]
             [byte-streams :as bs]
-            [algo-trader.config :refer [config]]
+            [algo-trader.config :refer [config minutes-in-day]]
             [algo-trader.utils :refer [epoch]]
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
@@ -83,7 +83,7 @@
        (take (:num-markets config))
        (reduce
         (fn [acc {:keys [name volumeUsd24h]}]
-          (assoc acc (keyword name) (/ volumeUsd24h 24.0 60.0)))
+          (assoc acc (keyword name) (* (/ volumeUsd24h minutes-in-day) (:est-bar-mins config))))
         {})))
 
 (defn fname [market end-ts]

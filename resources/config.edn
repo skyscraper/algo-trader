@@ -11,19 +11,23 @@
 
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
- :weights ;; portfolio optimized weights for each fc, empty for now
- {}
-
  ;; model params
- :bar-count 10 ;; min bars
+ :est-bar-mins 1.0
+ :bar-count 10 ;; minimum bars to see
  :vol-span 35
  :window-start 2.0
- :num-windows 12 ;; implication is that there will be 4 less forecasts than this number
- :scale-mult 10.0 ;; multiplier for scaling decay
+ :num-windows 8
+
+ ;; scaling
+ :scale-mult 10000.0 ;; multiplier for scaling decay
+ :scale-target 10.0
+ :scale-cap 20.0
+ :starting-scales [10.6 7.5 5.3 3.75 2.65 1.87]
+ :weights [0.2125 0.075 0.2125 0.215 0.08 0.215]
+ :fdm 1.15
 
  ;; trade params
- :num-markets 20
- :scale-target 30.0 ;; E[abs(pos size)] = this value * max pos size PRE-VOL SCALE
+ :num-markets 10
  :max-pos-notional 30000.0 ;; hard max for position notional
  :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
  :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)

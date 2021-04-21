@@ -53,14 +53,13 @@
   "run a backtest for a single market, outputting portfolio prices for each window"
   [market test-time]
   (log/info (format "starting backtest for %s" (name market)))
+  (model/set-scale-target!)
   (let [target-amts (select-keys (api/get-futures-targets) [market])]
     (model/initialize target-amts)
     (reset! core/markets (keys target-amts)))
   (oms/initialize-equity 100000.0)
   (let [max-pos (oms/determine-notionals @core/markets)]
-    (log/info (format "max notional per market: %f" max-pos))
-    (log/info (format "expected abs position size, pre-vol scale: %f"
-                      (model/set-scale-target max-pos))))
+    (log/info (format "max notional per market: %f" max-pos)))
   (initialize-positions)
   (log/info "fetching trades...")
   (let [bar-count (atom 0)

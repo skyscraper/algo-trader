@@ -39,6 +39,12 @@
     observed
     (+ (* alpha observed) (* (- 1.0 alpha) previous))))
 
+(defn clip [cap x]
+  (cond
+    (> x cap) cap
+    (< x (- cap)) (- cap)
+    :else x))
+
 ;;; seq ;;;
 (defn roll-seq
   "adds new value to head, takes first l"
