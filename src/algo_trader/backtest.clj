@@ -57,7 +57,7 @@
   (let [target-amts (select-keys (api/get-futures-targets) [market])]
     (model/initialize target-amts)
     (reset! core/markets (keys target-amts)))
-  (oms/initialize-equity (* (:num-markets config) (:max-position-notional config)))
+  (oms/initialize-equity (* (:num-markets config) (:max-pos-notional config)))
   (let [max-pos (oms/determine-notionals @core/markets)]
     (log/info (format "max notional per market: %f" max-pos))
     (initialize-positions max-pos))

@@ -97,7 +97,7 @@
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
-  (oms/initialize-equity (* (:num-markets config) (:max-position-notional config))) ;; hardcoding for now
+  (oms/initialize-equity (* (:num-markets config) (:max-pos-notional config))) ;; hardcoding for now
   (let [max-pos (oms/determine-notionals @markets)]
     (log/info (format "max notional per market: %f" max-pos))
     (oms/initialize-positions @markets max-pos))
