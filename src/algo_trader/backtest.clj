@@ -12,13 +12,13 @@
 
 (def positions (atom {}))
 
-(defn initialize-positions []
+(defn initialize-positions [starting-cash]
   (reset!
    positions
    (vec
     (repeatedly
      fc-count
-     (fn [] (atom {:cash 30000.0 :shares 0.0 :port-val 30000.0}))))))
+     (fn [] (atom {:cash starting-cash :shares 0.0 :port-val starting-cash}))))))
 
 (defn update-port! [price target side p]
   (let [target-notional (oms/get-target target)
@@ -59,8 +59,8 @@
     (reset! core/markets (keys target-amts)))
   (oms/initialize-equity 100000.0)
   (let [max-pos (oms/determine-notionals @core/markets)]
-    (log/info (format "max notional per market: %f" max-pos)))
-  (initialize-positions)
+    (log/info (format "max notional per market: %f" max-pos))
+    (initialize-positions max-pos))
   (log/info "fetching trades...")
   (let [bar-count (atom 0)
         trades (api/historical-trades market (or test-time (long (System/currentTimeMillis))) 1)

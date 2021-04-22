@@ -14,8 +14,7 @@
 (defn initialize-equity [eq]
   (reset! equity eq))
 
-(def starting-cash 30000.0)
-(defn initialize-positions [markets]
+(defn initialize-positions [markets starting-cash]
   (alter-var-root
    #'positions
    #(reduce
@@ -63,7 +62,7 @@
                      port-val (+ new-cash (* new-shares slip-price))]
                  {:cash new-cash :shares new-shares :port-val port-val})
                {:cash cash :shares shares :port-val (+ cash (* shares price))}))))]
-    (statsd/gauge :port-val (log-rtn starting-cash port-val) (list market))))
+    (statsd/gauge :port-val (log-rtn @max-pos-notional port-val) (list market))))
 
 (defn handle-oms-data [{:keys [msg-type market] :as msg}]
   (let [p (market positions)]
