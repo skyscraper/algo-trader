@@ -12,7 +12,7 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 1.0
+ :est-bar-mins 5.0
  :bar-count 10 ;; minimum bars to see
  :vol-span 35
  :window-start 2.0
