@@ -21,13 +21,13 @@
      (fn [] (atom {:cash 30000.0 :shares 0.0 :port-val 30000.0}))))))
 
 (defn update-port! [price target side p]
-  (let [target (oms/get-bounded-target target)
+  (let [target-notional (oms/get-target target)
         {:keys [port-val]}
         (swap!
          p
          (fn [{:keys [cash shares]}]
            (let [pos-mtm (* shares price)
-                 delta-cash (- target pos-mtm)]
+                 delta-cash (- target-notional pos-mtm)]
              (if (>= (Math/abs delta-cash) @oms/min-order-notional)
                (let [new-cash (- cash delta-cash)
                      ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread

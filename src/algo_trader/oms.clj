@@ -31,23 +31,19 @@
     (reset! min-pos-notional (* (:min-pos-notional-percent config) max-notional))
     (reset! max-pos-notional max-notional))) ;; last to return max
 
-(defn get-bounded-target [target-notional]
-  (let [abs-notional (Math/abs target-notional)
-        op (if (< target-notional 0.0) - +)]
-    (cond
-      (> abs-notional @max-pos-notional) (op @max-pos-notional)
-      (< abs-notional @min-pos-notional) 0.0
-      :else target-notional)))
+(defn get-target [target]
+  (let [mult (/ @max-pos-notional (:scale-cap config))]
+    (* mult target)))
 
 ;; temp crude logic for "live" backtesting - just send estimate of portfolio rtn to statsd
 (defn handle-target [{:keys [market price target side]} p]
-  (let [target (get-bounded-target target)
+  (let [target-notional (get-target target)
         {:keys [port-val]}
         (swap!
          p
          (fn [{:keys [cash shares]}]
            (let [pos-mtm (* shares price)
-                 delta-cash (- target pos-mtm)]
+                 delta-cash (- target-notional pos-mtm)]
              (if (>= (Math/abs delta-cash) @min-order-notional)
                (let [new-cash (- cash delta-cash)
                      ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread

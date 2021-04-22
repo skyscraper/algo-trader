@@ -31,4 +31,4 @@
 
 ;; ewm decay for forecast scaling factors
 (def scale-alpha
-  (get-alpha (* (last windows) (:scale-mult config))))
+  (get-alpha (:scale-span config)))

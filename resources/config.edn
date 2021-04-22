@@ -19,11 +19,11 @@
  :num-windows 8
 
  ;; scaling
- :scale-mult 10000.0 ;; multiplier for scaling decay
+ :scale-span 10000
  :scale-target 10.0
  :scale-cap 20.0
  :starting-scales [10.6 7.5 5.3 3.75 2.65 1.87]
- :weights [0.2125 0.075 0.2125 0.215 0.08 0.215]
+ :weights [0.2125 0.075 0.2025 0.215 0.08 0.215]
  :fdm 1.15
 
  ;; trade params
