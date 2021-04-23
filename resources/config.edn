@@ -27,7 +27,7 @@
  :fdm 1.15
 
  ;; trade params
- :num-markets 10
+ :num-markets 20
  :max-pos-notional 30000.0 ;; hard max for position notional
  :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
  :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)

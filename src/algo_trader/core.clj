@@ -1,7 +1,7 @@
 (ns algo-trader.core
   (:gen-class)
   (:require [algo-trader.api :as api]
-            [algo-trader.config :refer [config]]
+            [algo-trader.config :refer [config hardcoded-eq]]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
@@ -93,14 +93,16 @@
   (model/set-scale-target!)
   (let [target-amts (api/get-futures-targets)]
     (model/initialize target-amts)
-    (reset! markets (keys target-amts)))
+    (reset! markets (keys target-amts))
+    (doseq [[market target] target-amts]
+      (log/info (format "%s target: %,.2f" (name market) target))))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
-  (oms/initialize-equity (* (:num-markets config) (:max-pos-notional config))) ;; hardcoding for now
-  (let [max-pos (oms/determine-notionals @markets)]
-    (log/info (format "max notional per market: %f" max-pos))
-    (oms/initialize-positions @markets max-pos))
+  (oms/initialize-equity hardcoded-eq)
+  (let [starting-cash (oms/determine-notionals @markets)]
+    (log/info (format "starting equity per market: %,.2f" starting-cash))
+    (oms/initialize-positions @markets starting-cash))
   (log/info "Starting OMS handlers...")
   (oms/start-oms-handlers (generate-channel-map @markets))
   (log/info "Starting market data handlers...")

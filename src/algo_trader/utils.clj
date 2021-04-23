@@ -8,6 +8,9 @@
 (defn log-rtn [p1 p2]
   (Math/log (/ p2 p1)))
 
+(defn pct-rtn [p1 p2]
+  (dec (/ p2 p1)))
+
 (defn dot-product [xs ys]
   (apply + (map * xs ys)))
 

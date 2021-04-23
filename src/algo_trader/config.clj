@@ -32,3 +32,6 @@
 ;; ewm decay for forecast scaling factors
 (def scale-alpha
   (get-alpha (:scale-span config)))
+
+(def hardcoded-eq
+  (* (:num-markets config) (/ (:max-pos-notional config) 3)))
