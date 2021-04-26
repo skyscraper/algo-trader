@@ -34,4 +34,6 @@
   (get-alpha (:scale-span config)))
 
 (def hardcoded-eq
-  (* (:num-markets config) (/ (:max-pos-notional config) 3)))
+  (let [c (count (:markets config))
+        n-markets (if (zero? c) (:num-markets config) c)]
+    (* n-markets (/ (:max-pos-notional config) 3))))
