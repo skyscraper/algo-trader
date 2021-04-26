@@ -27,8 +27,8 @@
  :fdm 1.15
 
  ;; trade params
- :num-markets 20
+ :markets #{:BTC :BCH :SOL :ETH :SUSHI :DOGE :LINK :UNI :LTC :GRT :TRX :YFI}
+ :num-markets 20 ;; if above is populated, this will be ignored
  :max-pos-notional 30000.0 ;; hard max for position notional
- :min-pos-notional-percent 0.025 ;; hard minimum for position notional (piece)
- :min-order-notional-percent 0.025 ;; hard minimum for order notional (increment)
+ :min-order-notional-percent 0.0 ;; hard minimum for order notional (increment)
  }

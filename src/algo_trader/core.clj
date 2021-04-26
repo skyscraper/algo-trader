@@ -91,7 +91,7 @@
   (log/info "Connecting to ftx...")
   (reset-ftx!)
   (model/set-scale-target!)
-  (let [target-amts (api/get-futures-targets)]
+  (let [target-amts (api/get-futures-targets (:markets config))]
     (model/initialize target-amts)
     (reset! markets (keys target-amts))
     (doseq [[market target] target-amts]

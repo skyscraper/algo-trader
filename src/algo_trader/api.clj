@@ -74,17 +74,23 @@
       bs/to-string
       (parse-string true)))
 
-(defn get-futures-targets []
-  (->> (ftx "/futures" {})
-       :result
-       (filter #(includes? (:name %) "-PERP"))
-       (sort-by :volumeUsd24h)
-       reverse
-       (take (:num-markets config))
-       (reduce
-        (fn [acc {:keys [name volumeUsd24h]}]
-          (assoc acc (keyword name) (* (/ volumeUsd24h minutes-in-day) (:est-bar-mins config))))
-        {})))
+(defn get-futures-targets [markets]
+  (let [all-markets (->> (ftx "/futures" {})
+                         :result
+                         (filter #(includes? (:name %) "-PERP")))
+        filtered (if (empty? markets)
+                   (->> all-markets
+                        (sort-by :volumeUsd24h)
+                        reverse
+                        (take (:num-markets config)))
+                   (->> all-markets
+                        (map #(update % :underlying keyword))
+                        (filter #(markets (:underlying %)))))]
+    (reduce
+     (fn [acc {:keys [name volumeUsd24h]}]
+       (assoc acc (keyword name) (* (/ volumeUsd24h minutes-in-day) (:est-bar-mins config))))
+     {}
+     filtered)))
 
 (defn fname [market end-ts]
   (format "resources/%s_%s.npy" (name market) end-ts))
