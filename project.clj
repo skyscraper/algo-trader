@@ -12,7 +12,7 @@
                  [com.taoensso/nippy "3.1.1"]
                  [commons-codec/commons-codec "1.15"]
                  [org.clojure/clojure "1.10.3"]
-                 [org.clojure/core.async "1.3.610"]
+                 [org.clojure/core.async "1.3.618"]
                  [org.clojure/data.csv "1.0.0"]
                  [org.clojure/tools.logging "1.1.0"]]
   :repl-options {:init-ns algo-trader.core}
