@@ -2,12 +2,6 @@
   (:require [clojure.edn :as edn]))
 
 (def config (edn/read-string (slurp "resources/config.edn")))
-
-;; pre-calculating some values for repeated volatility calcs...
-(def vol-alpha (/ 2.0 (inc (:vol-span config))))
-(def diff-alpha (- 1.0 vol-alpha))
-(def vol-weights (take (:vol-span config) (iterate #(* % diff-alpha) 1.0)))
-(def sum-weights (apply + vol-weights))
 (def jump 2)
 (def fc-window-delta jump)
 (def fc-count (- (:num-windows config) fc-window-delta))
@@ -25,6 +19,9 @@
 (defn get-alpha [x]
   (/ 2.0 (inc x)))
 
+(def vol-alpha (get-alpha (:vol-span config)))
+(def vol-scale (Math/sqrt (* 365.0 24.0 (/ 60.0 (:est-bar-mins config)))))
+
 ;; ewm decay for windows
 (def window-alphas
   (mapv get-alpha windows))
@@ -33,7 +30,7 @@
 (def scale-alpha
   (get-alpha (:scale-span config)))
 
-(def hardcoded-eq
+(def hardcoded-eq ;; for testing
   (let [c (count (:markets config))
         n-markets (if (zero? c) (:num-markets config) c)]
-    (* n-markets (/ (:max-pos-notional config) 3))))
+    (* n-markets (:test-market-notional config))))

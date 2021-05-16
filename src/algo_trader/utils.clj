@@ -1,5 +1,5 @@
 (ns algo-trader.utils
-  (:require [algo-trader.config :refer [config vol-weights sum-weights]]
+  (:require [algo-trader.config :refer [config vol-scale]]
             [clojure.core.async :refer [chan]]
             [clojure.string :refer [upper-case]]
             [java-time :refer [instant zoned-date-time]]))
@@ -14,29 +14,6 @@
 (defn dot-product [xs ys]
   (apply + (map * xs ys)))
 
-(defn get-sum-weights [c]
-  (if (>= c (:vol-span config)) sum-weights (apply + (take c vol-weights))))
-
-(defn ewm
-  "adapted from the pandas implementation, with adjust=True
-  IMPORTANT: the weights are ordered from most recent to least, xs must be as well"
-  [xs]
-  (/ (dot-product vol-weights xs) (get-sum-weights (count xs))))
-
-(defn ewm-both
-  "similar to above, xs must be ordered with most recent first"
-  [xs]
-  (let [c (count xs)
-        sw (get-sum-weights c)
-        mu (/ (dot-product vol-weights xs) sw)
-        sigma (Math/sqrt
-               (/ (apply + (map #(* %1 (Math/pow (- %2 mu) 2)) vol-weights xs))
-                  sw))]
-    [mu sigma]))
-
-(defn ewm-vol [xs]
-  (last (ewm-both xs)))
-
 (defn ewm-step [previous observed alpha]
   (if (nil? previous)
     observed
@@ -47,6 +24,22 @@
     (> x cap) cap
     (< x (- cap)) (- cap)
     :else x))
+
+;;; vol ;;;
+(defn annual-vol-cash-target [trading-capital]
+  (* (:volatility-target config) trading-capital))
+
+(defn bar-vol-cash-target [trading-capital]
+  (/ (annual-vol-cash-target trading-capital) vol-scale))
+
+(defn block-value [price block-size]
+  (* 0.01 price block-size)) ;; 1% price move impact
+
+(defn instrument-vol [price block-size vol]
+  (* (block-value price block-size) vol 100.0)) ;; 100 because we need vol-pct
+
+(defn vol-scalar [trading-capital price block-size vol]
+  (/ (bar-vol-cash-target trading-capital) (instrument-vol price block-size vol)))
 
 ;;; seq ;;;
 (defn roll-seq

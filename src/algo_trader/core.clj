@@ -71,7 +71,7 @@
         :subscribed (log/info (format "subscribed to %s %s" market channel))
         :unsubscribed (log/info (format "unsubscribed from %s %s" market channel))
         :error (log/error (format "ftx error: %s %s" code msg))
-        :pong (log/debug "pong") ;; todo: debug 
+        :pong (log/debug "pong")
         (log/warn (str "unhandled ftx event: " payload)))
       (recur))))
 
@@ -91,8 +91,9 @@
   (log/info "Connecting to ftx...")
   (reset-ftx!)
   (model/set-scale-target!)
-  (let [target-amts (api/get-futures-targets (:markets config))]
-    (model/initialize target-amts)
+  (let [target-amts (api/get-futures-targets (:markets config))
+        market-info (api/get-market-info (:markets config))]
+    (model/initialize target-amts market-info)
     (reset! markets (keys target-amts))
     (doseq [[market target] target-amts]
       (log/info (format "%s target: %,.2f" (name market) target))))

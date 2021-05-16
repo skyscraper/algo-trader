@@ -12,9 +12,9 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 5.0
+ :est-bar-mins 30.0
  :bar-count 10 ;; minimum bars to see
- :vol-span 35
+ :vol-span 36
  :window-start 2.0
  :num-windows 8
 
@@ -26,9 +26,12 @@
  :weights [0.2125 0.075 0.2025 0.215 0.08 0.215]
  :fdm 1.15
 
+ ;; volatility targeting
+ :volatility-target 0.375
+
  ;; trade params
  :markets #{:BTC :BCH :SOL :ETH :SUSHI :DOGE :LINK :UNI :LTC :GRT :TRX :YFI}
  :num-markets 20 ;; if above is populated, this will be ignored
- :max-pos-notional 30000.0 ;; hard max for position notional
- :min-order-notional-percent 0.0 ;; hard minimum for order notional (increment)
+ :position-inertia-percent 0.1 ;; minimum position change
+ :test-market-notional 10000.0
  }

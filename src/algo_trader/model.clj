@@ -3,7 +3,7 @@
             [algo-trader.config :refer [config default-weights scale-alpha]]
             [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [dot-product clip ewm-vol ewm-step epoch]]
+            [algo-trader.utils :refer [dot-product clip ewm-step epoch]]
             [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
@@ -14,6 +14,7 @@
 (def fc-cap (:scale-cap config))
 (def no-result [0.0 false])
 (def model-data {})
+(def market-info {})
 
 (defn set-scale-target! []
   (alter-var-root #'scale-target (constantly (:scale-target config))))
@@ -24,7 +25,7 @@
 (defn clean-scales []
   (mapv default-scale (:starting-scales config)))
 
-(defn initialize [target-amts]
+(defn initialize [target-amts mkt-info]
   (let [m-data (reduce-kv
                 (fn [acc market target-amt]
                   (assoc acc market (atom (bars/bar-base target-amt))))
@@ -35,7 +36,8 @@
                 {}
                 target-amts)]
     (alter-var-root #'model-data merge m-data)
-    (alter-var-root #'scales merge s-data)))
+    (alter-var-root #'scales merge s-data)
+    (alter-var-root #'market-info merge mkt-info)))
 
 (defn update-and-get-forecast-scale!
   "update raw forecast scaling values and return latest scale"
@@ -57,9 +59,9 @@
     scaled-fc))
 
 (defn predict
-  "get combined prediction for a market"
-  [market {:keys [ewmacs bars]}]
-  (let [vol (ewm-vol (map :diff bars))
+  "get combined forecast for a market"
+  [market {:keys [ewmacs variance]}]
+  (let [vol (Math/sqrt variance)
         forecasts (map-indexed
                    (fn [idx ewmac] (predict-single market vol idx ewmac))
                    ewmacs)]
@@ -84,7 +86,7 @@
     (doseq [{:keys [price time] :as trade} data]
       (statsd/count :trade 1 l)
       (let [trade (update trade :side keyword)
-            [target real?] (update-and-predict! market trade)
+            [forecast real?] (update-and-predict! market trade)
             trade-time (epoch time)
             trade-delay (- now trade-time)]
         (statsd/distribution :trade-delay trade-delay nil)
@@ -93,6 +95,7 @@
                 {:msg-type :target
                  :market market
                  :price price
-                 :target target
+                 :forecast forecast
                  :side (:side trade)
+                 :vol (Math/sqrt (:variance @(market model-data)))
                  :ts trade-time}))))))

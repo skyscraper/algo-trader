@@ -68,8 +68,18 @@
   (http/get (str (:ftx-api config) path)
             {:query-params params}))
 
+(defn ftx-us-get [path params]
+  (http/get (str (:ftx-api-us config) path)
+            {:query-params params}))
+
 (defn ftx [path params]
   (-> @(ftx-get path params)
+      :body
+      bs/to-string
+      (parse-string true)))
+
+(defn ftx-us [path params]
+  (-> @(ftx-us-get path params)
       :body
       bs/to-string
       (parse-string true)))
@@ -89,6 +99,27 @@
     (reduce
      (fn [acc {:keys [name volumeUsd24h]}]
        (assoc acc (keyword name) (* (/ volumeUsd24h minutes-in-day) (:est-bar-mins config))))
+     {}
+     filtered)))
+
+(defn get-market-info
+  "fetch spot market info, but map to perps to match market data"
+  [markets]
+  (let [all-markets (->> (ftx-us "/markets" {})
+                         :result
+                         (map #(update % :quoteCurrency keyword))
+                         (filter #(= :USD (:quoteCurrency %))))
+        filtered (if (empty? markets)
+                   (->> all-markets
+                        (sort-by :volumeUsd24h)
+                        reverse
+                        (take (:num-markets config)))
+                   (->> all-markets
+                        (filter #(markets (keyword (:baseCurrency %))))))]
+    (reduce
+     (fn [acc {:keys [baseCurrency] :as m}]
+       ;; here is the hacky bit
+       (assoc acc (keyword (str baseCurrency "-PERP")) m))
      {}
      filtered)))
 
