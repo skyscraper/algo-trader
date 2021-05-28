@@ -139,7 +139,7 @@
 (defn fetch-historical-trades [market end-ts lookback-days]
   (let [path (format "/markets/%s/trades" (name market))
         limit 100 ;; current ftx max
-        start-ts (- end-ts (* lookback-days 24 60 60))
+        start-ts (long (- end-ts (* lookback-days 24 60 60)))
         params {:start_time start-ts
                 :limit limit}
         unsorted

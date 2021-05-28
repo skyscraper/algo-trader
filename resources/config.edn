@@ -12,17 +12,18 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 30.0
+ :est-bar-mins 5.0
  :bar-count 10 ;; minimum bars to see
  :vol-span 36
  :window-start 2.0
  :num-windows 8
 
  ;; scaling
- :scale-span 10000
+ :scale-span 1000
  :scale-target 10.0
  :scale-cap 20.0
- :starting-scales [10.6 7.5 5.3 3.75 2.65 1.87]
+ ;; starting scales measured against current est bar size
+ :starting-scales [0.0072 0.0051 0.0036 0.0025 0.0018 0.0013]
  :weights [0.2125 0.075 0.2025 0.215 0.08 0.215]
  :fdm 1.15
 

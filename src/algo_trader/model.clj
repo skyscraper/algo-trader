@@ -83,13 +83,13 @@
 (defn handle-trade [{:keys [market data]}]
   (let [now (System/currentTimeMillis)
         l (list market)]
-    (doseq [{:keys [price time] :as trade} data]
+    (doseq [{:keys [price time] :as trade} data
+            :let [trade-time (epoch time)
+                  trade-delay (- now trade-time)
+                  trade (update trade :side keyword)]]
+      (statsd/distribution :trade-delay trade-delay nil)
       (statsd/count :trade 1 l)
-      (let [trade (update trade :side keyword)
-            [forecast real?] (update-and-predict! market trade)
-            trade-time (epoch time)
-            trade-delay (- now trade-time)]
-        (statsd/distribution :trade-delay trade-delay nil)
+      (let [[forecast real?] (update-and-predict! market trade)]
         (when real?
           (put! (market oms-channels)
                 {:msg-type :target
