@@ -144,7 +144,10 @@
                 :limit limit}
         unsorted
         (loop [results [] ids #{} next-end end-ts]
-          (let [trades (:result (ftx path (assoc params :end_time next-end)))
+          (let [trades (->> (assoc params :end_time next-end)
+                            (ftx path)
+                            :result
+                            (map #(update % :side keyword)))
                 filtered (remove #(ids (:id %)) trades)
                 updated (concat results filtered)]
             (if (< (count trades) limit)

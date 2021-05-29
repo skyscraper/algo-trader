@@ -14,7 +14,8 @@
                  [org.clojure/clojure "1.10.3"]
                  [org.clojure/core.async "1.3.618"]
                  [org.clojure/data.csv "1.0.0"]
-                 [org.clojure/tools.logging "1.1.0"]]
+                 [org.clojure/tools.logging "1.1.0"]
+                 [techascent/tech.ml "5.01"]]
   :repl-options {:init-ns algo-trader.core}
   :main algo-trader.core
   :aot :all)

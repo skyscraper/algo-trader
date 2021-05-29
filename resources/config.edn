@@ -15,17 +15,17 @@
  :est-bar-mins 5.0
  :bar-count 10 ;; minimum bars to see
  :vol-span 36
- :window-start 2.0
- :num-windows 8
+ :window-start 16.0
+ :num-windows 5
 
  ;; scaling
- :scale-span 1000
+ :scale-span 100
  :scale-target 10.0
  :scale-cap 20.0
  ;; starting scales measured against current est bar size
- :starting-scales [0.0072 0.0051 0.0036 0.0025 0.0018 0.0013]
- :weights [0.2125 0.075 0.2025 0.215 0.08 0.215]
- :fdm 1.15
+ :starting-scales [5 3.6 2.6]
+ :weights [0.42 0.16 0.42]
+ :fdm 1.17
 
  ;; volatility targeting
  :volatility-target 0.375

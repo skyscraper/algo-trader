@@ -26,6 +26,10 @@
 (def window-alphas
   (mapv get-alpha windows))
 
+;; convenience for mf
+(def fast-alphas
+  (vec (take fc-count window-alphas)))
+
 ;; ewm decay for forecast scaling factors
 (def scale-alpha
   (get-alpha (:scale-span config)))

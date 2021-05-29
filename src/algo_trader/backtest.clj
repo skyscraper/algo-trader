@@ -10,25 +10,26 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
 
-(defn fc-scale-val [market idx ewmac vol price side]
-  (let [raw-fc (/ ewmac vol)
+(defn fc-scale-val [market idx ewmac mfi vol price side]
+  (let [pred (first (model/model-predict market idx ewmac mfi))
+        raw-fc (/ pred vol)
         scale (model/update-and-get-forecast-scale! market idx raw-fc)
         scaled-fc (clip model/fc-cap (* raw-fc scale))
         fdm-fc (clip model/fc-cap (* scaled-fc model/fdm))
         window-val (oms/update-port! price fdm-fc side vol (market oms/positions))]
-    [ewmac vol raw-fc scaled-fc fdm-fc scale window-val]))
+    [pred vol raw-fc scaled-fc fdm-fc scale window-val]))
 
-(def header ["ewmac" "vol" "raw-fc" "scaled-fc" "fdm-fc" "scale" "port-val"])
+(def header ["pred" "vol" "raw-fc" "scaled-fc" "fdm-fc" "scale" "port-val"])
 (defn run
   "run a backtest for a single market, outputting portfolio prices for each window"
   [underlying test-time lookback-days verbose?]
   (let [market (uc-kw (str (name underlying) "-PERP"))
         m-list [market]
-        u-set #{underlying}]
+        u-set #{underlying}
+        target-amts (api/get-futures-targets u-set)]
     (log/info (format "starting backtest for %s" (name underlying)))
     (model/set-scale-target!)
-    (let [target-amts (api/get-futures-targets u-set)
-          market-info (api/get-market-info u-set)]
+    (let [market-info (api/get-market-info u-set)]
       (model/initialize target-amts market-info)
       (reset! core/markets (keys target-amts)))
     (oms/initialize-equity (:test-market-notional config))
@@ -40,6 +41,8 @@
           ts (or test-time (long (/ (System/currentTimeMillis) 1000)))
           trades (api/historical-trades market ts lookback-days)
           data (market model/model-data)]
+      (log/info "generating models...")
+      (model/generate-models target-amts ts lookback-days)
       (log/info (format "processing %s trades..." (count trades)))
       (with-open [writer (io/writer "resources/backtest.csv")]
         (write-csv
@@ -55,13 +58,14 @@
             (swap! data bars/add-to-bars trade)
             (when (> (count (:bars @data)) (:bar-count config))
               (swap! bar-count inc)
-              (let [{:keys [ewmacs variance]}
+              (let [{:keys [bars]}
                     (swap! data update :bars #(take (:bar-count config) %))
-                    vol (Math/sqrt variance)
-                    xs (map-indexed
-                        (fn [idx ewmac]
-                          (fc-scale-val market idx ewmac vol price side))
-                        ewmacs)
+                    {:keys [vol ewmacs mfis]} (last bars)
+                    xs (mapv
+                        (fn [idx]
+                          (fc-scale-val market idx (nth ewmacs idx)
+                                        (nth mfis idx) vol price side))
+                        (range fc-count))
                     row (if verbose?
                           (apply concat xs)
                           (map last xs))]
