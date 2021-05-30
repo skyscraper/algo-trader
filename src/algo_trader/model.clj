@@ -139,10 +139,9 @@
    datasets))
 
 (defn generate-models
-  [target-amts end-ts lookback-days]
+  [target-amts trades]
   (doseq [[market target-amt] target-amts
-          :let [trades (api/historical-trades market end-ts lookback-days)
-                bs (bars/generate-bars target-amt trades)
+          :let [bs (bars/generate-bars target-amt trades)
                 datasets (feature-datasets bs)
                 all-models (get-models datasets)]]
     (swap! models assoc market all-models)))

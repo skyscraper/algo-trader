@@ -39,10 +39,10 @@
     (log/info "fetching trades...")
     (let [bar-count (atom 0)
           ts (or test-time (long (/ (System/currentTimeMillis) 1000)))
-          trades (api/historical-trades market ts lookback-days)
+          trades (api/get-db-trades) ;; todo: maybe make this configurable?
           data (market model/model-data)]
       (log/info "generating models...")
-      (model/generate-models target-amts ts lookback-days)
+      (model/generate-models target-amts trades)
       (log/info (format "processing %s trades..." (count trades)))
       (with-open [writer (io/writer "resources/backtest.csv")]
         (write-csv

@@ -5,9 +5,14 @@
             [algo-trader.utils :refer [epoch]]
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
-            [clojure.set :refer [union]]
+            [clojure.set :refer [union rename-keys]]
             [clojure.string :refer [includes?]]
+            [honey.sql :as sql]
+            [honey.sql.helpers :as h]
+            [java-time :refer [instant]]
             [manifold.stream :as s]
+            [next.jdbc :as jdbc]
+            [next.jdbc.date-time]
             [taoensso.nippy :as nippy])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)
@@ -164,3 +169,64 @@
     (if (nil? trades)
       (fetch-historical-trades market end-ts lookback-days)
       trades)))
+
+;; db stuff
+(defn fetch
+  [path params]
+  (map
+   (fn [x]
+     (-> (update x :side #(if (= "buy" %) "b" "s"))
+         (update :time instant)))
+   (:result (ftx path params))))
+
+(defn db-insert [conn data]
+  (jdbc/execute!
+   conn
+   (-> (h/insert-into :trades)
+       (h/values data)
+       (sql/format {:pretty true}))))
+
+(def db {:dbtype "postgres"
+         :dbname "postgres"
+         :user "postgres"
+         :password "password"})
+
+;; still need to specify in seconds
+(defn fetch-to-db [market end-ts lookback-days]
+  (let [path (format "/markets/%s/trades" (name market))
+        limit 100
+        start-ts (long (- end-ts (* lookback-days 24 60 60)))
+        params {:start_time start-ts
+                :limit limit}
+        next-end (atom end-ts)
+        last-count (atom limit)
+        ds (jdbc/get-datasource db)]
+    (with-open [conn (jdbc/get-connection ds)]
+      (while (>= @last-count limit)
+        (let [trades (fetch path (assoc params :end_time @next-end))]
+          (swap! next-end (fn [x]
+                            (reduce
+                             #(min %1 (.getEpochSecond (:time %2)))
+                             x
+                             trades)))
+          (swap! last-count (fn [_] (count trades)))
+          (db-insert conn trades))))))
+
+(defn get-db-trades []
+  (let [ds (jdbc/get-datasource db)
+        selected (jdbc/execute!
+                  ds
+                  (-> (h/select :*)
+                      (h/from :trades)
+                      (h/order-by [:trades.time :asc])
+                      (sql/format {:pretty true})))]
+    (map
+     (fn [t]
+       (-> (rename-keys t {:trades/time :time
+                           :trades/id :id
+                           :trades/price :price
+                           :trades/size :size
+                           :trades/side :side
+                           :trades/liquidation :liquidation})
+           (update :side #(if (= % "b") :buy :sell))))
+     selected)))
