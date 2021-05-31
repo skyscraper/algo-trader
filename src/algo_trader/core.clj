@@ -5,7 +5,7 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [generate-channel-map]]
+            [algo-trader.utils :refer [generate-channel-map get-target-amts]]
             [cheshire.core :refer [parse-string]]
             [clojure.core.async :refer [<! >! chan go-loop]]
             [clojure.string :refer [join]]
@@ -91,8 +91,8 @@
   (log/info "Connecting to ftx...")
   (reset-ftx!)
   (model/set-scale-target!)
-  (let [target-amts (api/get-futures-targets (:markets config))
-        market-info (api/get-market-info (:markets config))]
+  (let [target-amts (get-target-amts)
+        market-info (api/get-market-info (set (keys (:target-amts config))))]
     (model/initialize target-amts market-info)
     (reset! markets (keys target-amts))
     (doseq [[market target] target-amts]

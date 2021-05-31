@@ -6,7 +6,7 @@
             [algo-trader.db :as db]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
-            [algo-trader.utils :refer [uc-kw clip]]
+            [algo-trader.utils :refer [uc-kw clip get-target-amts]]
             [clojure.data.csv :refer [write-csv]]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
@@ -27,7 +27,7 @@
   (let [market (uc-kw (str (name underlying) "-PERP"))
         m-list [market]
         u-set #{underlying}
-        target-amts (api/get-futures-targets u-set)]
+        target-amts (get-target-amts)]
     (log/info (format "starting backtest for %s" (name underlying)))
     (model/set-scale-target!)
     (let [market-info (api/get-market-info u-set)]

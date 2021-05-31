@@ -5,9 +5,6 @@
 (def jump 2)
 (def fc-window-delta jump)
 (def fc-count (- (:num-windows config) fc-window-delta))
-(def minutes-in-day (* 24 60))
-
-(def default-weights (repeat fc-count (double (/ 1 fc-count))))
 
 ;; windows to calculate
 (def windows
@@ -35,6 +32,6 @@
   (get-alpha (:scale-span config)))
 
 (def hardcoded-eq ;; for testing
-  (let [c (count (:markets config))
+  (let [c (count (:target-amts config))
         n-markets (if (zero? c) (:num-markets config) c)]
     (* n-markets (:test-market-notional config))))

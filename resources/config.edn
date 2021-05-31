@@ -30,7 +30,18 @@
  :volatility-target 0.375
 
  ;; trade params
- :markets #{:BTC :BCH :SOL :ETH :SUSHI :DOGE :LINK :UNI :LTC :GRT :TRX :YFI}
+ :target-amts {:ETH-PERP 9107764.838017013,
+               :LINK-PERP 438996.16638020833,
+               :UNI-PERP 189965.92395138886,
+               :GRT-PERP 116362.92591180555,
+               :BTC-PERP 1.1688280568465278E7,
+               :SUSHI-PERP 214371.13938072915,
+               :DOGE-PERP 464127.3723954132,
+               :SOL-PERP 576298.7497743055,
+               :BCH-PERP 183982.81173055552,
+               :LTC-PERP 289071.34099826385,
+               :YFI-PERP 84894.27321180554,
+               :TRX-PERP 67023.90053440104}
  :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
  :test-market-notional 10000.0

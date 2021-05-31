@@ -1,13 +1,13 @@
 (ns algo-trader.api
   (:require [aleph.http :as http]
             [byte-streams :as bs]
-            [algo-trader.config :refer [config minutes-in-day]]
+            [algo-trader.config :refer [config]]
             [algo-trader.utils :refer [epoch]]
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
             [clojure.set :refer [union]]
             [clojure.string :refer [includes?]]
-            [java-time :refer [instant]]
+            [java-time :refer [as duration instant]]
             [manifold.stream :as s]
             [taoensso.nippy :as nippy])
   (:import (javax.crypto Mac)
@@ -85,86 +85,45 @@
       bs/to-string
       (parse-string true)))
 
-(defn get-futures-targets [markets]
+(defn get-futures-targets [underlying-set]
   (let [all-markets (->> (ftx "/futures" {})
                          :result
                          (filter #(includes? (:name %) "-PERP")))
-        filtered (if (empty? markets)
+        filtered (if (empty? underlying-set)
                    (->> all-markets
                         (sort-by :volumeUsd24h)
                         reverse
                         (take (:num-markets config)))
                    (->> all-markets
                         (map #(update % :underlying keyword))
-                        (filter #(markets (:underlying %)))))]
+                        (filter #(underlying-set (:underlying %)))))
+        frac (/ (:est-bar-mins config) (as (duration 1 :days) :minutes))]
     (reduce
      (fn [acc {:keys [name volumeUsd24h]}]
-       (assoc acc (keyword name) (* (/ volumeUsd24h minutes-in-day) (:est-bar-mins config))))
+       (assoc acc (keyword name) (* frac volumeUsd24h)))
      {}
      filtered)))
 
 (defn get-market-info
   "fetch spot market info, but map to perps to match market data"
-  [markets]
+  [underlying-set]
   (let [all-markets (->> (ftx-us "/markets" {})
                          :result
                          (map #(update % :quoteCurrency keyword))
                          (filter #(= :USD (:quoteCurrency %))))
-        filtered (if (empty? markets)
+        filtered (if (empty? underlying-set)
                    (->> all-markets
                         (sort-by :volumeUsd24h)
                         reverse
                         (take (:num-markets config)))
                    (->> all-markets
-                        (filter #(markets (keyword (:baseCurrency %))))))]
+                        (filter #(underlying-set (keyword (:baseCurrency %))))))]
     (reduce
      (fn [acc {:keys [baseCurrency] :as m}]
        ;; here is the hacky bit
        (assoc acc (keyword (str baseCurrency "-PERP")) m))
      {}
      filtered)))
-
-(defn fname [market end-ts]
-  (format "resources/%s_%s.npy" (name market) end-ts))
-
-(defn freeze-trades [market end-ts data]
-  (when (and (not (nil? data)) (seq data))
-    (nippy/freeze-to-file (fname market end-ts) data)))
-
-(defn thaw-trades [market end-ts]
-  (try
-    (nippy/thaw-from-file (fname market end-ts))
-    (catch Exception _ nil)))
-
-;; epochs here are in SECONDS
-(defn fetch-historical-trades [market end-ts lookback-days]
-  (let [path (format "/markets/%s/trades" (name market))
-        limit 100 ;; current ftx max
-        start-ts (long (- end-ts (* lookback-days 24 60 60)))
-        params {:start_time start-ts
-                :limit limit}
-        unsorted
-        (loop [results [] ids #{} next-end end-ts]
-          (let [trades (->> (assoc params :end_time next-end)
-                            (ftx path)
-                            :result
-                            (map #(update % :side keyword)))
-                filtered (remove #(ids (:id %)) trades)
-                updated (concat results filtered)]
-            (if (< (count trades) limit)
-              updated
-              (recur updated
-                     (union ids (set (map :id filtered)))
-                     (reduce #(min %1 (long (/ (epoch (:time %2)) 1000))) next-end trades)))))
-        sorted (sort-by :time unsorted)]
-    (freeze-trades market end-ts sorted)
-    sorted))
-
-(defn historical-trades [market end-ts lookback-days]
-  (let [trades (thaw-trades market end-ts)]
-    (if (nil? trades)
-      (fetch-historical-trades market end-ts lookback-days)
-      trades)))
 
 (defn fetch-for-db
   [path params]

@@ -6,6 +6,7 @@
             [algo-trader.utils :refer [clip ewm-step epoch]]
             [clojure.core.async :refer [put!]]
             [clojure.tools.logging :as log]
+            [taoensso.nippy :as nippy]
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.modelling :as ds-mod]
             [tech.v3.ml :as ml]
@@ -27,6 +28,29 @@
 (defn default-scale [starting-scale]
   (atom {:mean (/ scale-target starting-scale) :scale starting-scale}))
 
+(defn model-fname [market]
+  (format "../resources/model_%s.npy" (name market)))
+
+(defn freeze-model [market m]
+  (nippy/freeze-to-file (model-fname market) m))
+
+(defn thaw-model [market]
+  (try
+    (nippy/thaw-from-file (model-fname market))
+    (catch Exception _ nil)))
+
+(defn load-models [markets]
+  (doseq [market markets
+          :let [m (thaw-model market)]]
+    (when m
+      (log/info "found model for:" market)
+      (swap! models assoc market m))))
+
+(defn freeze-models []
+  (doseq [[market m] @models]
+    (when m
+      (freeze-model market m))))
+
 (defn initialize [target-amts mkt-info]
   (let [m-data (reduce-kv
                 (fn [acc market target-amt]
@@ -40,7 +64,8 @@
                 target-amts)]
     (alter-var-root #'model-data merge m-data)
     (alter-var-root #'scales merge s-data)
-    (alter-var-root #'market-info merge mkt-info)))
+    (alter-var-root #'market-info merge mkt-info)
+    (load-models (keys target-amts))))
 
 (defn update-and-get-forecast-scale!
   "update raw forecast scaling values and return latest scale"
