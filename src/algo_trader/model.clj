@@ -1,11 +1,11 @@
 (ns algo-trader.model
-  (:require [algo-trader.api :as api]
-            [algo-trader.bars :as bars]
-            [algo-trader.config :refer [config default-weights scale-alpha fc-count]]
+  (:require [algo-trader.bars :as bars]
+            [algo-trader.config :refer [config scale-alpha fc-count]]
             [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [dot-product clip ewm-step epoch]]
+            [algo-trader.utils :refer [clip ewm-step epoch]]
             [clojure.core.async :refer [put!]]
+            [clojure.tools.logging :as log]
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.modelling :as ds-mod]
             [tech.v3.ml :as ml]
@@ -14,13 +14,11 @@
 (def bar-count (:bar-count config))
 (def scale-target 0.0)
 (def scales {})
-(def weights (or (:weights config) default-weights))
 (def fdm (:fdm config))
 (def fc-cap (:scale-cap config))
 (def no-result [0.0 false])
 (def model-data {})
 (def market-info {})
-;; market -> index -> model
 (def models (atom {}))
 
 (defn set-scale-target! []
@@ -29,9 +27,6 @@
 (defn default-scale [starting-scale]
   (atom {:mean (/ scale-target starting-scale) :scale starting-scale}))
 
-(defn clean-scales []
-  (mapv default-scale (:starting-scales config)))
-
 (defn initialize [target-amts mkt-info]
   (let [m-data (reduce-kv
                 (fn [acc market target-amt]
@@ -39,7 +34,8 @@
                 {}
                 target-amts)
         s-data (reduce-kv
-                (fn [acc market _] (assoc acc market (clean-scales)))
+                (fn [acc market _]
+                  (assoc acc market (default-scale (:starting-scale config))))
                 {}
                 target-amts)]
     (alter-var-root #'model-data merge m-data)
@@ -48,41 +44,41 @@
 
 (defn update-and-get-forecast-scale!
   "update raw forecast scaling values and return latest scale"
-  [market idx raw-forecast]
+  [market raw-forecast]
   (:scale
    (swap!
-    (get-in scales [market idx])
+    (market scales)
     (fn [{:keys [mean]}]
       (let [new-mean (ewm-step mean (Math/abs raw-forecast) scale-alpha)
             new-scale (/ scale-target new-mean)]
         {:mean new-mean :scale new-scale})))))
 
-(defn model-predict [market idx ewmac mfi]
-  (let [xs (ds/->dataset [{:ewmac ewmac :mfi mfi}])]
-    (try
-      (:rtn (ml/predict xs (nth (market @models) idx)))
-      (catch Exception e
-        (println "problem with prediction: " (.getMessage e)) ;; todo: log
-        (vec (repeat (last (ds/shape xs)) 0.0))))))
+(def header
+  (let [f (fn [i v] (keyword (str v i)))]
+    (vec
+     (concat (map-indexed f (repeat fc-count "ewmac"))
+             (map-indexed f (repeat fc-count "mfi"))))))
 
-(defn predict-single
-  "get prediction for a single window of a market"
-  [market vol idx ewmac mfi]
-  (let [pred (model-predict market idx ewmac mfi)
-        raw-fc (/ pred vol) ;; volatility standardization
-        scale (update-and-get-forecast-scale! market idx raw-fc)
-        scaled-fc (clip fc-cap (* raw-fc scale))]
-    scaled-fc))
+(defn row [ewmacs mfis]
+  (zipmap header (vec (concat ewmacs mfis))))
+
+(defn model-predict [market ewmacs mfis]
+  (let [xs (ds/->dataset [(row ewmacs mfis)])]
+    (try
+      (:rtn (ml/predict xs (market @models)))
+      (catch Exception e
+        (log/error "problem with prediction: " (.getMessage e))
+        (vec (repeat (last (ds/shape xs)) 0.0))))))
 
 (defn predict
   "get combined forecast for a market"
   [market {:keys [bars]}]
   (let [{:keys [vol ewmacs mfis]} (last bars)
-        forecasts (mapv
-                   (fn [idx]
-                     (predict-single market vol idx (nth ewmacs idx) (nth mfis idx)))
-                   (range fc-count))]
-    (->> (dot-product weights forecasts)
+        pred (model-predict market ewmacs mfis)
+        raw-fc (/ pred vol) ;; volatility standardization
+        scale (update-and-get-forecast-scale! market raw-fc)]
+    (->> (* raw-fc scale)
+         (clip fc-cap)
          (* fdm)
          (clip fc-cap))))
 
@@ -117,31 +113,22 @@
                  :vol (Math/sqrt (:variance @(market model-data)))
                  :ts trade-time}))))))
 
-(defn feature-datasets [bars]
-  (mapv
-   #(ds-mod/set-inference-target (ds/->dataset %) :rtn)
-   (reduce
-    (fn [acc [{:keys [ewmacs mfis]} {:keys [rtn]}]]
-      (let [base {:rtn rtn}]
-        (reduce
-         (fn [acc2 idx]
-           (update acc2 idx conj (assoc base
-                                        :ewmac (nth ewmacs idx)
-                                        :mfi (nth mfis idx))))
-         acc
-         (range fc-count))))
-    []
-    (partition 2 1 bars))))
+(defn feature-dataset [bars]
+  (-> (reduce
+       (fn [acc [{:keys [ewmacs mfis]} {:keys [rtn]}]]
+         (conj acc (assoc (row ewmacs mfis) :rtn rtn)))
+       []
+       (partition 2 1 bars))
+      ds/->dataset
+      (ds-mod/set-inference-target :rtn)))
 
-(defn get-models [datasets]
-  (mapv
-   #(ml/train-split % {:model-type :xgboost/regression})
-   datasets))
+(defn get-model [dataset]
+  (ml/train-split dataset {:model-type :xgboost/regression}))
 
 (defn generate-models
   [target-amts trades]
   (doseq [[market target-amt] target-amts
           :let [bs (bars/generate-bars target-amt trades)
-                datasets (feature-datasets bs)
-                all-models (get-models datasets)]]
-    (swap! models assoc market all-models)))
+                dataset (feature-dataset bs)
+                m (get-model dataset)]]
+    (swap! models assoc market m)))

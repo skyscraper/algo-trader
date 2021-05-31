@@ -23,8 +23,7 @@
  :scale-target 10.0
  :scale-cap 20.0
  ;; starting scales measured against current est bar size
- :starting-scales [5 3.6 2.6]
- :weights [0.42 0.16 0.42]
+ :starting-scale 3.6
  :fdm 1.17
 
  ;; volatility targeting
