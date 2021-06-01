@@ -11,8 +11,9 @@
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
 
-(defn fc-scale-val [market ewmacs mfis vol price side]
-  (let [pred (first (model/model-predict market ewmacs mfis))
+(defn fc-scale-val [market ewmacs mfis mean vol price side]
+  (let [phi (first (model/model-predict market ewmacs mfis))
+        pred (+ mean (* phi vol))
         raw-fc (/ pred vol)
         scale (model/update-and-get-forecast-scale! market raw-fc)
         scaled-fc (clip model/fc-cap (* raw-fc scale))
@@ -34,14 +35,14 @@
       (model/initialize target-amts market-info)
       (reset! core/markets (keys target-amts)))
     (oms/initialize-equity (:test-market-notional config))
-    (let [starting-cash (oms/determine-notionals @core/markets)]
+    (let [starting-cash (oms/determine-notionals [m-list])]
       (log/info (format "starting equity per market: %,.2f" starting-cash))
       (oms/initialize-positions m-list starting-cash))
     (log/info "fetching trades...")
     (let [bar-count (atom 0)
           begin (db/get-first-ts)
           end (db/get-last-ts)
-          split-ts (+ begin (* training-percent (- end begin)))
+          split-ts (long (+ begin (* training-percent (- end begin))))
           training-data (db/get-trades begin split-ts)
           backtest-trades (db/get-trades split-ts end)
           data (market model/model-data)]
@@ -55,11 +56,11 @@
             (swap! data bars/add-to-bars trade)
             (when (> (count (:bars @data)) (:bar-count config))
               (swap! bar-count inc)
-              (let [{:keys [bars]}
+              (let [{:keys [bars mean]}
                     (swap! data update :bars #(take (:bar-count config) %))
-                    {:keys [vol ewmacs mfis]} (last bars)
-                    xs (fc-scale-val market ewmacs mfis vol price side)
+                    {:keys [vol ewmacs mfis]} (first bars)
+                    xs (fc-scale-val market ewmacs mfis mean vol price side)
                     row (if verbose? xs [(last xs)])]
                 (write-csv writer [row]))))))
-      (log/info (format "created %s bars" (+ (:bar-count config) @bar-count))))))
+      (log/info (format "tested on %s bars" (+ (:bar-count config) @bar-count))))))
 

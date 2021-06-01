@@ -90,16 +90,17 @@
 (defn model-predict [market ewmacs mfis]
   (let [xs (ds/->dataset [(row ewmacs mfis)])]
     (try
-      (:rtn (ml/predict xs (market @models)))
+      (:phi (ml/predict xs (market @models)))
       (catch Exception e
         (log/error "problem with prediction: " (.getMessage e))
         (vec (repeat (last (ds/shape xs)) 0.0))))))
 
 (defn predict
   "get combined forecast for a market"
-  [market {:keys [bars]}]
-  (let [{:keys [vol ewmacs mfis]} (last bars)
-        pred (model-predict market ewmacs mfis)
+  [market {:keys [bars mean]}]
+  (let [{:keys [vol ewmacs mfis]} (first bars)
+        phi (first (model-predict market ewmacs mfis))
+        pred (+ mean (* phi vol))
         raw-fc (/ pred vol) ;; volatility standardization
         scale (update-and-get-forecast-scale! market raw-fc)]
     (->> (* raw-fc scale)
@@ -140,15 +141,15 @@
 
 (defn feature-dataset [bars]
   (-> (reduce
-       (fn [acc [{:keys [ewmacs mfis]} {:keys [rtn]}]]
-         (conj acc (assoc (row ewmacs mfis) :rtn rtn)))
+       (fn [acc [{:keys [phi]} {:keys [ewmacs mfis]}]]
+         (conj acc (assoc (row ewmacs mfis) :phi phi)))
        []
        (partition 2 1 bars))
       ds/->dataset
-      (ds-mod/set-inference-target :rtn)))
+      (ds-mod/set-inference-target :phi)))
 
 (defn get-model [dataset]
-  (ml/train-split dataset {:model-type :xgboost/regression}))
+  (ml/train-split (ds/shuffle dataset) {:model-type :xgboost/regression}))
 
 (defn generate-models
   [target-amts trades]
