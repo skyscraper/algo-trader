@@ -1,60 +1,58 @@
 (ns algo-trader.bars
-  (:require [algo-trader.config :refer [config vol-alpha window-alphas fast-alphas
+  (:require [algo-trader.config :refer [config vol-alpha window-alphas
                                         fc-count fc-window-delta]]
             [algo-trader.utils :refer [pct-rtn ewm-step]]))
 
-(def base {:amt 0.0 :v 0.0 :pmf 0.0 :nmf 0.0})
+(def lag (:lag config))
+(def base {:amt 0.0 :v 0.0 :bv 0.0 :sv 0.0})
 
 (defn bar-base [target-amt]
   {:current base
    :bars '()
    :ewms (repeat (:num-windows config) nil)
-   :pmfs (repeat fc-count nil)
-   :nmfs (repeat fc-count nil)
+   :vois '()
+   :oirs '()
    :target-amt target-amt})
 
 (defn update-bar [bar {:keys [price size side]}]
   (let [amt (* price size)
         b? (= :buy side)]
-    (-> (assoc bar :c price)
+    (-> (update bar :o (fnil identity price))
+        (assoc :c price)
         (update :amt + amt)
         (update :v + size)
-        (update :pmf + (if b? amt 0))
-        (update :nmf + (if b? 0 amt)))))
+        (update :bv + (if b? size 0.0))
+        (update :sv + (if b? 0.0 size)))))
 
 (defn add-to-bars
-  [{:keys [current bars ewms pmfs nmfs mean variance target-amt] :as acc}
+  [{:keys [current bars ewms vois oirs variance target-amt] :as acc}
    {:keys [price] :as trade}]
-  (let [{:keys [amt pmf nmf] :as updated} (update-bar current trade)]
+  (let [{:keys [o c amt v bv sv] :as updated} (update-bar current trade)]
     (if (>= amt target-amt)
-      (let [{:keys [c vol] :or {c price}} (first bars)
+      (let [prev-close (:c (first bars) price)
             new-ewms (mapv #(ewm-step %1 price %2) ewms window-alphas)
             new-ewmacs (mapv - new-ewms (drop fc-window-delta new-ewms))
-            new-pmfs (mapv #(ewm-step %1 pmf %2) pmfs fast-alphas)
-            new-nmfs (mapv #(ewm-step %1 nmf %2) nmfs fast-alphas)
-            new-mfis (mapv #(- 50.0 (/ 100 (inc (/ %1 %2)))) new-pmfs new-nmfs)
-            rtn (pct-rtn c price)
-            new-mean (ewm-step mean rtn vol-alpha)
+            voi (- bv sv)
+            adj-voi (/ voi 1e2)
+            new-vois (take lag (conj vois adj-voi))
+            oir (/ voi amt)
+            adj-oir (* 5e4 oir)
+            new-oirs (take lag (conj oirs adj-oir))
+            vwap (/ amt v)
+            mpb (/ vwap (/ (+ o c) 2.0))
+            adj-mpb (* 1e4 (dec mpb))
+            features (vec (concat new-ewmacs new-vois new-oirs [adj-mpb]))
+            diff (- price prev-close)
+            rtn (pct-rtn prev-close price)
             sq-rtn (Math/pow rtn 2.0)
             new-variance (ewm-step variance sq-rtn vol-alpha)
-            new-vol (Math/sqrt new-variance)
-            prev-mean (or mean new-mean)
-            prev-vol (or vol new-vol)
-            phi (if (zero? prev-vol)
-                  0.0
-                  (/ (- rtn prev-mean) prev-vol))
-            new-bar (assoc updated
-                           :ewmacs new-ewmacs
-                           :mfis new-mfis
-                           :phi phi
-                           :vol new-vol)]
+            new-bar (assoc updated :features features :diff diff)]
         (assoc
          (update acc :bars conj new-bar)
          :current base
          :ewms new-ewms
-         :pmfs new-pmfs
-         :nmfs new-nmfs
-         :mean new-mean
+         :vois new-vois
+         :oirs new-oirs
          :variance new-variance))
       (assoc acc :current updated))))
 
@@ -64,4 +62,4 @@
         (bar-base target-amt)
         trades)
        :bars
-       drop-last))
+       (drop-last (max lag fc-count))))

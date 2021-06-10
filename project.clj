@@ -8,7 +8,7 @@
                  [ch.qos.logback/logback-classic "1.2.3"]
                  [cheshire "5.10.0"]
                  [clojure.java-time "0.3.2"]
-                 [com.datadoghq/java-dogstatsd-client "2.11.0"]
+                 [com.datadoghq/java-dogstatsd-client "2.13.0"]
                  [com.github.seancorfield/honeysql "2.0.0-rc2"]
                  [com.github.seancorfield/next.jdbc "1.2.659"]
                  [com.taoensso/nippy "3.1.1"]

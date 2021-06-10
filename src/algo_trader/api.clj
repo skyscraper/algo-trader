@@ -2,14 +2,11 @@
   (:require [aleph.http :as http]
             [byte-streams :as bs]
             [algo-trader.config :refer [config]]
-            [algo-trader.utils :refer [epoch]]
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
-            [clojure.set :refer [union]]
             [clojure.string :refer [includes?]]
             [java-time :refer [as duration instant]]
-            [manifold.stream :as s]
-            [taoensso.nippy :as nippy])
+            [manifold.stream :as s])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)
            (org.apache.commons.codec.binary Hex)))

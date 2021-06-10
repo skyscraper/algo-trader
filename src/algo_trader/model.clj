@@ -10,6 +10,7 @@
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.modelling :as ds-mod]
             [tech.v3.ml :as ml]
+            [tech.v3.libs.smile.regression]
             [tech.v3.libs.xgboost]))
 
 (def bar-count (:bar-count config))
@@ -82,26 +83,27 @@
   (let [f (fn [i v] (keyword (str v i)))]
     (vec
      (concat (map-indexed f (repeat fc-count "ewmac"))
-             (map-indexed f (repeat fc-count "mfi"))))))
+             (map-indexed f (repeat (:lag config) "voi"))
+             (map-indexed f (repeat (:lag config) "oir"))
+             [:mpb]))))
 
-(defn row [ewmacs mfis]
-  (zipmap header (vec (concat ewmacs mfis))))
+(defn row [features]
+  (zipmap header features))
 
-(defn model-predict [market ewmacs mfis]
-  (let [xs (ds/->dataset [(row ewmacs mfis)])]
+(defn model-predict [market features]
+  (let [xs (ds/->dataset [(row features)])]
     (try
-      (:phi (ml/predict xs (market @models)))
+      (:diff (ml/predict xs (market @models)))
       (catch Exception e
         (log/error "problem with prediction: " (.getMessage e))
         (vec (repeat (last (ds/shape xs)) 0.0))))))
 
 (defn predict
   "get combined forecast for a market"
-  [market {:keys [bars mean]}]
-  (let [{:keys [vol ewmacs mfis]} (first bars)
-        phi (first (model-predict market ewmacs mfis))
-        pred (+ mean (* phi vol))
-        raw-fc (/ pred vol) ;; volatility standardization
+  [market {:keys [bars variance]}]
+  (let [{:keys [features]} (first bars)
+        pred (first (model-predict market features))
+        raw-fc (/ pred (Math/sqrt variance))
         scale (update-and-get-forecast-scale! market raw-fc)]
     (->> (* raw-fc scale)
          (clip fc-cap)
@@ -141,15 +143,19 @@
 
 (defn feature-dataset [bars]
   (-> (reduce
-       (fn [acc [{:keys [phi]} {:keys [ewmacs mfis]}]]
-         (conj acc (assoc (row ewmacs mfis) :phi phi)))
+       (fn [acc bars]
+         (let [[{:keys [features]} & bs] (reverse bars)
+               diffs (map :diff bs)
+               cumulative-diffs (rest (reductions + 0.0 diffs))
+               avg (/ (apply + cumulative-diffs) (:forecast-window config))]
+           (conj acc (assoc (row features) :diff avg))))
        []
-       (partition 2 1 bars))
+       (partition (inc (:forecast-window config)) 1 bars))
       ds/->dataset
-      (ds-mod/set-inference-target :phi)))
+      (ds-mod/set-inference-target :diff)))
 
 (defn get-model [dataset]
-  (ml/train-split (ds/shuffle dataset) {:model-type :xgboost/regression}))
+  (ml/train-split (ds/shuffle dataset) {:model-type :smile.regression/elastic-net}))
 
 (defn generate-models
   [target-amts trades]

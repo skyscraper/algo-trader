@@ -12,36 +12,38 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 5.0
- :bar-count 10 ;; minimum bars to see
+ :est-bar-mins 15
+ :bar-count 10
  :vol-span 36
- :window-start 16.0
+ :window-start 2.0
  :num-windows 5
+ :lag 5
+ :forecast-window 5
 
  ;; scaling
  :scale-span 100
  :scale-target 10.0
  :scale-cap 20.0
  ;; starting scales measured against current est bar size
- :starting-scale 23.0
+ :starting-scale 0.01
  :fdm 1.17
 
  ;; volatility targeting
  :volatility-target 0.375
 
  ;; trade params
- :target-amts {:ETH 9107764.838017013,
-               :LINK 438996.16638020833,
-               :UNI 189965.92395138886,
-               :GRT 116362.92591180555,
-               :BTC 1.1688280568465278E7,
-               :SUSHI 214371.13938072915,
-               :DOGE 464127.3723954132,
-               :SOL 576298.7497743055,
-               :BCH 183982.81173055552,
-               :LTC 289071.34099826385,
-               :YFI 84894.27321180554,
-               :TRX 67023.90053440104}
+ :target-amts {:ETH 1.8322832505010422E7,
+               :LINK 1048549.8377838545,
+               :UNI 253333.2390916667,
+               :GRT 169524.4236302084,
+               :BTC 3.624247130721876E7,
+               :SUSHI 347730.2752958334,
+               :DOGE 1312013.8663788806,
+               :SOL 1684540.547473959,
+               :BCH 734391.9493447918,
+               :LTC 615675.6951687501,
+               :YFI 78839.26505208336,
+               :TRX 293604.26861263026}
  :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
  :test-market-notional 10000.0
