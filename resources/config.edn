@@ -31,6 +31,11 @@
  ;; volatility targeting
  :volatility-target 0.375
 
+ ;; slippage
+ :same-slippage-bps 1.0
+ :opp-slippage-bps 5.0
+ :taker-fee-bps 7.0
+
  ;; trade params
  :target-amts {:ETH 1.8322832505010422E7,
                :LINK 1048549.8377838545,

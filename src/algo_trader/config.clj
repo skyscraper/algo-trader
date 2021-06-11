@@ -31,3 +31,14 @@
   (let [c (count (:target-amts config))
         n-markets (if (zero? c) (:num-markets config) c)]
     (* n-markets (:test-market-notional config))))
+
+;; convenience pre-calc
+(def price-slippage
+  [(+ 1.0 (/ (:same-slippage-bps config) 1e4))
+   (+ 1.0 (/ (:opp-slippage-bps config) 1e4))
+   (- 1.0 (/ (:opp-slippage-bps config) 1e4))
+   (- 1.0 (/ (:same-slippage-bps config) 1e4))])
+
+(def fee-mults
+  [(+ 1.0 (/ (:taker-fee-bps config) 1e4))
+   (+ 1.0 (/ (:taker-fee-bps config) 1e4))])

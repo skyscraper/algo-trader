@@ -13,6 +13,7 @@
                  [com.github.seancorfield/next.jdbc "1.2.659"]
                  [com.taoensso/nippy "3.1.1"]
                  [commons-codec/commons-codec "1.15"]
+                 [insn "0.5.2"]
                  [org.clojure/clojure "1.10.3"]
                  [org.clojure/core.async "1.3.618"]
                  [org.clojure/data.csv "1.0.0"]
