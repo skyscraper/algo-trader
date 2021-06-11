@@ -19,13 +19,13 @@
  :num-windows 5
  :lag 5
  :forecast-window 5
+ :model-type :smile.regression/elastic-net
 
  ;; scaling
  :scale-span 100
  :scale-target 10.0
  :scale-cap 20.0
- ;; starting scales measured against current est bar size
- :starting-scale 0.01
+ :starting-scale 0.013
  :fdm 1.17
 
  ;; volatility targeting

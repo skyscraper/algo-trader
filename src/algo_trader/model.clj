@@ -9,9 +9,11 @@
             [taoensso.nippy :as nippy]
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.modelling :as ds-mod]
-            [tech.v3.ml :as ml]
             [tech.v3.libs.smile.regression]
-            [tech.v3.libs.xgboost]))
+            [tech.v3.libs.xgboost]
+            [tech.v3.ml.loss :as loss]
+            [tech.v3.ml :as ml]
+            [tech.v3.ml.gridsearch :as gs]))
 
 (def bar-count (:bar-count config))
 (def scale-target 0.0)
@@ -154,8 +156,24 @@
       ds/->dataset
       (ds-mod/set-inference-target :diff)))
 
+(defn gridsearchable-options [model-type]
+  (merge {:model-type model-type} (ml/hyperparameters model-type)))
+
+(defn test-options
+  [train-test-split options]
+  (let [model (ml/train (:train-ds train-test-split) options)
+        prediction (ml/predict (:test-ds train-test-split) model)]
+    (assoc model :loss (loss/mae (prediction :diff)
+                                 ((:test-ds train-test-split) :diff)))))
+
 (defn get-model [dataset]
-  (ml/train-split (ds/shuffle dataset) {:model-type :smile.regression/elastic-net}))
+  (let [train-test-split (ds-mod/train-test-split dataset)]
+    (->> (gridsearchable-options (:model-type config))
+         (gs/sobol-gridsearch)
+         (take 100)
+         (map #(test-options train-test-split %))
+         (sort-by :loss)
+         first)))
 
 (defn generate-models
   [target-amts trades]
