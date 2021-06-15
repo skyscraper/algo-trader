@@ -12,26 +12,43 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 5.0
- :bar-count 10 ;; minimum bars to see
+ :est-bar-mins 15
+ :bar-count 10
  :vol-span 36
  :window-start 2.0
- :num-windows 8
+ :num-windows 5
+ :lag 5
+ :forecast-window 5
+ :model-type :xgboost/regression
 
  ;; scaling
- :scale-span 1000
+ :scale-span 100
  :scale-target 10.0
  :scale-cap 20.0
- ;; starting scales measured against current est bar size
- :starting-scales [0.0072 0.0051 0.0036 0.0025 0.0018 0.0013]
- :weights [0.2125 0.075 0.2025 0.215 0.08 0.215]
- :fdm 1.15
+ :starting-scale 0.006
+ :fdm 1.17
 
  ;; volatility targeting
  :volatility-target 0.375
 
+ ;; slippage
+ :same-slippage-bps 1.0
+ :opp-slippage-bps 5.0
+ :taker-fee-bps 7.0
+
  ;; trade params
- :markets #{:BTC :BCH :SOL :ETH :SUSHI :DOGE :LINK :UNI :LTC :GRT :TRX :YFI}
+ :target-amts {:ETH 1.8322832505010422E7,
+               :LINK 1048549.8377838545,
+               :UNI 253333.2390916667,
+               :GRT 169524.4236302084,
+               :BTC 3.624247130721876E7,
+               :SUSHI 347730.2752958334,
+               :DOGE 1312013.8663788806,
+               :SOL 1684540.547473959,
+               :BCH 734391.9493447918,
+               :LTC 615675.6951687501,
+               :YFI 78839.26505208336,
+               :TRX 293604.26861263026}
  :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
  :test-market-notional 10000.0

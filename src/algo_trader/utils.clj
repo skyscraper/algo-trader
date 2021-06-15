@@ -57,6 +57,13 @@
   [kw-or-str]
   (-> kw-or-str name upper-case keyword))
 
+(defn get-target-amts []
+  (reduce-kv
+   (fn [m k v]
+     (assoc m (uc-kw (str (name k) "-PERP")) v))
+   {}
+   (:target-amts config)))
+
 ;;; core.async ;;;
 (defn generate-channel-map [markets]
   (reduce

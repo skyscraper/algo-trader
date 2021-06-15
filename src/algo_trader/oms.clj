@@ -1,5 +1,5 @@
 (ns algo-trader.oms
-  (:require [algo-trader.config :refer [config]]
+  (:require [algo-trader.config :refer [config price-slippage fee-mults]]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
             [clojure.core.async :refer [<! go-loop]]))
@@ -24,35 +24,32 @@
 (defn determine-notionals [markets]
   (reset! starting-cash (/ @equity (count markets))))
 
-(defn get-target [target current-eq]
-  (let [mult (/ current-eq (:scale-cap config))]
-    (min (* mult target) (:max-pos-notional config))))
+(defn get-target [forecast port-mtm price vol]
+  (let [block-size 1.0 ;; purposefully hardcoded; see Carver 154
+        vol-scale (vol-scalar port-mtm price block-size vol)]
+    (/ (* forecast vol-scale) (:scale-target config))))
+
+(defn slipped-price [price side delta]
+  ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
+  (let [i (if (pos? delta)
+            (if (= :buy side) 0 1)
+            (if (= :buy side) 2 3))]
+    (* price (nth price-slippage i))))
 
 (defn update-port! [price forecast side vol p]
   (:port-val
    (swap!
     p
     (fn [{:keys [cash shares]}]
-      (let [pos-mtm (* shares price)
-            port-mtm (+ pos-mtm cash)
-            block-size 1.0 ;; purposefully hardcoded; see Carver 154
-            vol-scale (vol-scalar port-mtm price block-size vol)
-            target (/ (* forecast vol-scale) (:scale-target config))
+      (let [port-mtm (+ (* shares price) cash)
+            target (get-target forecast port-mtm price vol)
             delta-shares (- target shares)
             thresh (Math/abs (* (:position-inertia-percent config) shares))]
         (if (>= (Math/abs delta-shares) thresh)
-          (let [;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
-                slip-price (if (pos? delta-shares)
-                             (if (= :buy side)
-                               (* price 1.0001)
-                               (* price 1.0005))
-                             (if (= :buy side)
-                               (* price 0.9995)
-                               (* price 0.9999)))
-                ;; ftx taker fees are 7bps for lowest tier
+          (let [slip-price (slipped-price price side delta-shares)
                 my-price (if (pos? delta-shares)
-                           (* slip-price 1.0007)
-                           (* slip-price 0.9993))
+                           (* slip-price (first fee-mults))
+                           (* slip-price (last fee-mults)))
                 delta-cash (* delta-shares my-price)
                 new-cash (- cash delta-cash)
                 pos-val (* target slip-price)
