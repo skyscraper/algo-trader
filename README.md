@@ -1,12 +1,12 @@
 # algo-trader
 
-crypto momentum trading - no guarantees 
+Crypto momentum trading
 
 ## What is this project?
 
-~~This app is some boilerplate code that I use in my personal algo trader for both US equities and crypto trading. I generally like the pattern that I used for subscribing and handling events so I'm putting it up here in case anyone else finds it useful.~~
+The goal of this repo is to become a fully automated trading application. See below for progress and todos.
 
-I am changing the focus of this repo. The boilerplate still applies to anyone wanting to trade equities, but I am going to build this out into a fully automated momentum trader with ftx (endpoints for both ftx.com and ftx.us are included, depending on your jurisdiction). This is an opinionated approach and anyone who forks this is free to change the algo.
+Endpoints for both ftx.com and ftx.us are included, use the ones for your jurisdiction. This is an opinionated approach and is definitely not the only way to trade.
 
 ## Features/TODO:
 
@@ -16,12 +16,28 @@ I am changing the focus of this repo. The boilerplate still applies to anyone wa
  * ~~Elementary bar formation~~ (only implemented what I needed for the time being, will consider it done)
  * ~~Rough momentum algo~~
  * ~~Forecast scaling~~
- * Slippage/costs estimation
+ * ~~Slippage/costs estimation~~
+ * ~~Position management~~
+ * ~~Bet sizing~~
+ * ~~Backtesting~~
+ * ~~Paper tradering~~
+ * ~~Portfolio optimization~~ (now out of scope for my model)
  * Order placing logic
  * Order management
- * Position management
- * Backtesting (this might end up being a separate repo since I need to fork off of what I have privately)
- * Portfolio optimization
+ * Equity initialization
+ * Runtime support for:
+   * trading
+   * paper trading
+   * backtesting
+   * persisting live data
+   * querying historical data
+ * Make schema multi-symbol
+
+## Requirements
+ * Java 8 or higher
+ * leiningen
+ * FTX API key for your own account
+ * Datadog account (optional) and [datadog agent](https://docs.datadoghq.com/agent/)
 
 ## Implementation/discussion
 
