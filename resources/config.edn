@@ -19,13 +19,13 @@
  :num-windows 5
  :lag 5
  :forecast-window 5
- :model-type :smile.regression/elastic-net
+ :model-type :xgboost/regression
 
  ;; scaling
  :scale-span 100
  :scale-target 10.0
  :scale-cap 20.0
- :starting-scale 0.013
+ :starting-scale 0.006
  :fdm 1.17
 
  ;; volatility targeting

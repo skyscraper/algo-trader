@@ -1,9 +1,10 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config scale-alpha fc-count]]
+            [algo-trader.db :as db]
             [algo-trader.oms :refer [oms-channels]]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [clip ewm-step epoch]]
+            [algo-trader.utils :refer [clip ewm-step epoch get-target-amts]]
             [clojure.core.async :refer [put!]]
             [clojure.tools.logging :as log]
             [taoensso.nippy :as nippy]
@@ -35,7 +36,9 @@
   (format "../resources/model_%s.npy" (name market)))
 
 (defn freeze-model [market m]
-  (nippy/freeze-to-file (model-fname market) m))
+  (let [model [(-> (update m :model-data dissoc :metrics)
+                   (update :options dissoc :watches))]]
+    (nippy/freeze-to-file (model-fname market) model)))
 
 (defn thaw-model [market]
   (try
@@ -166,19 +169,39 @@
     (assoc model :loss (loss/mae (prediction :diff)
                                  ((:test-ds train-test-split) :diff)))))
 
-(defn get-model [dataset]
-  (let [train-test-split (ds-mod/train-test-split dataset)]
-    (->> (gridsearchable-options (:model-type config))
-         (gs/sobol-gridsearch)
-         (take 100)
-         (map #(test-options train-test-split %))
-         (sort-by :loss)
-         first)))
+(defn gridsearch-options [train-test-split]
+  (->> (gridsearchable-options (:model-type config))
+       (gs/sobol-gridsearch)
+       (take 100)
+       (map #(test-options train-test-split %))
+       (sort-by :loss)
+       first ;; could potentially iterate on this more in the future...
+       :options))
+
+(defn get-model [train-test-split model-options]
+  (ml/train (:train-ds train-test-split)
+            (assoc model-options
+                   :watches {:test-ds (:test-ds train-test-split)}
+                   :eval-metric "mae"
+                   :round 100
+                   :early-stopping-round 4)))
 
 (defn generate-models
   [target-amts trades]
   (doseq [[market target-amt] target-amts
           :let [bs (bars/generate-bars target-amt trades)
                 dataset (feature-dataset bs)
-                m (get-model dataset)]]
+                train-test-split (ds-mod/train-test-split dataset)
+                model-options (gridsearch-options train-test-split)
+                m (get-model train-test-split model-options)]]
     (swap! models assoc market m)))
+
+;; convenience for testing
+(defn sample-dataset [market]
+  (let [begin (db/get-first-ts)
+        end (db/get-last-ts)
+        split-ts (long (+ begin (* 2/3 (- end begin))))
+        trades (db/get-trades begin split-ts)
+        target-amt (market (get-target-amts))
+        bs (bars/generate-bars target-amt trades)]
+    (feature-dataset bs)))
