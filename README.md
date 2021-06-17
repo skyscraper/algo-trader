@@ -28,10 +28,10 @@ Endpoints for both ftx.com and ftx.us are included, use the ones for your jurisd
  * Runtime support for:
    * trading
    * paper trading
-   * backtesting
+   * ~~backtesting~~
    * persisting live data
-   * querying historical data
- * Make schema multi-symbol
+   * ~~querying historical data~~
+ * ~~Make schema multi-symbol~~
 
 ## Requirements
  * Java 8 or higher
