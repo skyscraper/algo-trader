@@ -1,14 +1,17 @@
 (ns algo-trader.core
   (:gen-class)
   (:require [algo-trader.api :as api]
+            [algo-trader.db :as db]
+            [algo-trader.backtest :as backtest]
             [algo-trader.config :refer [config hardcoded-eq]]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [generate-channel-map get-target-amts]]
+            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw]]
             [cheshire.core :refer [parse-string]]
             [clojure.core.async :refer [<! >! chan go-loop]]
             [clojure.string :refer [join]]
+            [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [manifold.deferred :refer [timeout!]]
             [manifold.stream :refer [take!]]))
@@ -91,9 +94,8 @@
   (log/info "Connecting to ftx...")
   (reset-ftx!)
   (model/set-scale-target!)
-  (let [target-amts (get-target-amts)
-        market-info (api/get-market-info (set (keys (:target-amts config))))]
-    (model/initialize target-amts market-info)
+  (let [target-amts (get-target-amts)]
+    (model/initialize target-amts)
     (reset! markets (keys target-amts))
     (doseq [[market target] target-amts]
       (log/info (format "%s target: %,.2f" (name market) target))))
@@ -115,6 +117,38 @@
   (log/info "Started!")
   (.await signal))
 
+(def cli-options
+  [["-p" nil "Paper trading"
+    :id :papertrading?
+    :default false]
+   ["-b" nil "Backtest"
+    :id :backtest?
+    :default false]
+   ["-c" nil "Collect real time data"
+    :id :collect?
+    :default false]
+   ["-h" nil "Fetch historical data"
+    :id :historical?
+    :default false]
+   ["-u" "--underlying UNDERLYING" "Underlying token"
+    :id :underlying
+    :default :ETH
+    :parse-fn uc-kw]
+   ["-l" "--lookback LOOKBACK" "Lookback days to fetch"
+    :id :lookback
+    :default 1.0
+    :parse-fn #(Double/parseDouble %)]
+   ["-a" nil "Append historical data"
+    :id :append?
+    :default false]])
+
 (defn -main
   [& args]
-  (run))
+  (let [{:keys [papertrading? backtest? collect? historical? underlying lookback append?]}
+        (:options (cli/parse-opts args cli-options))]
+    (cond
+      papertrading? nil ;; todo
+      backtest? (backtest/run-all)
+      collect? nil ;; todo
+      historical? (db/fetch-and-store (market-kw underlying) lookback append?)
+      :else (run))))

@@ -57,10 +57,17 @@
   [kw-or-str]
   (-> kw-or-str name upper-case keyword))
 
+(defn market-kw [underlying]
+  (uc-kw (str (name underlying) "-PERP")))
+
+(defn underlying-kw [market]
+  (let [n (name market)]
+    (uc-kw (subs n 0 (- (count n) 5)))))
+
 (defn get-target-amts []
   (reduce-kv
    (fn [m k v]
-     (assoc m (uc-kw (str (name k) "-PERP")) v))
+     (assoc m (market-kw k) v))
    {}
    (:target-amts config)))
 

@@ -1,12 +1,10 @@
 (ns algo-trader.backtest
-  (:require [algo-trader.api :as api]
-            [algo-trader.bars :as bars]
+  (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config]]
-            [algo-trader.core :as core]
             [algo-trader.db :as db]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
-            [algo-trader.utils :refer [uc-kw clip get-target-amts]]
+            [algo-trader.utils :refer [clip get-target-amts]]
             [clojure.data.csv :refer [write-csv]]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]))
@@ -23,32 +21,27 @@
 (def header ["pred" "raw-fc" "scaled-fc" "fdm-fc" "scale" "port-val"])
 (defn run
   "run a backtest for a single market, outputting portfolio prices for each window"
-  [underlying training-percent verbose?]
-  (let [market (uc-kw (str (name underlying) "-PERP"))
-        m-list [market]
-        u-set #{underlying}
-        target-amts (select-keys (get-target-amts) m-list)]
-    (log/info (format "starting backtest for %s" (name underlying)))
+  [market target-amt verbose?]
+  (let [m-list [market]]
+    (log/info (format "starting backtest for %s" (name market)))
     (model/set-scale-target!)
-    (let [market-info (api/get-market-info u-set)]
-      (model/initialize target-amts market-info)
-      (reset! core/markets (keys target-amts)))
+    (model/initialize {market target-amt})
     (oms/initialize-equity (:test-market-notional config))
     (let [starting-cash (oms/determine-notionals [m-list])]
       (log/info (format "starting equity per market: %,.2f" starting-cash))
       (oms/initialize-positions m-list starting-cash))
     (log/info "fetching trades...")
     (let [bar-count (atom 0)
-          begin (db/get-first-ts)
-          end (db/get-last-ts)
-          split-ts (long (+ begin (* training-percent (- end begin))))
-          training-data (db/get-trades begin split-ts)
-          backtest-trades (db/get-trades split-ts end)
+          begin (db/get-first-ts market)
+          end (db/get-last-ts market)
+          split-ts (long (+ begin (* (:training-split config) (- end begin))))
+          training-data (db/get-trades market begin split-ts)
+          backtest-trades (db/get-trades market split-ts end)
           data (market model/model-data)]
       (log/info "generating models...")
-      (model/generate-models target-amts training-data)
+      (model/generate-model market target-amt training-data)
       (log/info (format "processing %s trades..." (count backtest-trades)))
-      (with-open [writer (io/writer "resources/backtest.csv")]
+      (with-open [writer (io/writer (format "resources/%s_backtest.csv" (name market)))]
         (write-csv writer (if verbose? [header] [["port-val"]]))
         (doseq [trade backtest-trades]
           (let [{:keys [price side] :as trade} (update trade :side keyword)]
@@ -63,3 +56,8 @@
                     row (if verbose? xs [(last xs)])]
                 (write-csv writer [row]))))))
       (log/info (format "tested on %s bars" (+ (:bar-count config) @bar-count))))))
+
+(defn run-all []
+  (let [target-amts (get-target-amts)]
+    (doseq [[market target-amt] target-amts]
+      (run market target-amt false))))

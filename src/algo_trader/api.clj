@@ -4,7 +4,6 @@
             [algo-trader.config :refer [config]]
             [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! go-loop timeout]]
-            [clojure.string :refer [includes?]]
             [java-time :refer [as duration instant]]
             [manifold.stream :as s])
   (:import (javax.crypto Mac)
@@ -85,7 +84,7 @@
 (defn get-futures-targets [underlying-set]
   (let [all-markets (->> (ftx "/futures" {})
                          :result
-                         (filter #(includes? (:name %) "-PERP")))
+                         (filter #(= (:type %) "perpetual")))
         filtered (if (empty? underlying-set)
                    (->> all-markets
                         (sort-by :volumeUsd24h)
@@ -98,27 +97,6 @@
     (reduce
      (fn [acc {:keys [name volumeUsd24h]}]
        (assoc acc (keyword name) (* frac volumeUsd24h)))
-     {}
-     filtered)))
-
-(defn get-market-info
-  "fetch spot market info, but map to perps to match market data"
-  [underlying-set]
-  (let [all-markets (->> (ftx-us "/markets" {})
-                         :result
-                         (map #(update % :quoteCurrency keyword))
-                         (filter #(= :USD (:quoteCurrency %))))
-        filtered (if (empty? underlying-set)
-                   (->> all-markets
-                        (sort-by :volumeUsd24h)
-                        reverse
-                        (take (:num-markets config)))
-                   (->> all-markets
-                        (filter #(underlying-set (keyword (:baseCurrency %))))))]
-    (reduce
-     (fn [acc {:keys [baseCurrency] :as m}]
-       ;; here is the hacky bit
-       (assoc acc (keyword (str baseCurrency "-PERP")) m))
      {}
      filtered)))
 

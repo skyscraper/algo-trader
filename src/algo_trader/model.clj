@@ -23,7 +23,6 @@
 (def fc-cap (:scale-cap config))
 (def no-result [0.0 false])
 (def model-data {})
-(def market-info {})
 (def models (atom {}))
 
 (defn set-scale-target! []
@@ -57,7 +56,7 @@
     (when m
       (freeze-model market m))))
 
-(defn initialize [target-amts mkt-info]
+(defn initialize [target-amts]
   (let [m-data (reduce-kv
                 (fn [acc market target-amt]
                   (assoc acc market (atom (bars/bar-base target-amt))))
@@ -70,7 +69,6 @@
                 target-amts)]
     (alter-var-root #'model-data merge m-data)
     (alter-var-root #'scales merge s-data)
-    (alter-var-root #'market-info merge mkt-info)
     (load-models (keys target-amts))))
 
 (defn update-and-get-forecast-scale!
@@ -186,22 +184,21 @@
                    :round 100
                    :early-stopping-round 4)))
 
-(defn generate-models
-  [target-amts trades]
-  (doseq [[market target-amt] target-amts
-          :let [bs (bars/generate-bars target-amt trades)
-                dataset (feature-dataset bs)
-                train-test-split (ds-mod/train-test-split dataset)
-                model-options (gridsearch-options train-test-split)
-                m (get-model train-test-split model-options)]]
+(defn generate-model
+  [market target-amt trades]
+  (let [bs (bars/generate-bars target-amt trades)
+        dataset (feature-dataset bs)
+        train-test-split (ds-mod/train-test-split dataset)
+        model-options (gridsearch-options train-test-split)
+        m (get-model train-test-split model-options)]
     (swap! models assoc market m)))
 
 ;; convenience for testing
 (defn sample-dataset [market]
-  (let [begin (db/get-first-ts)
-        end (db/get-last-ts)
+  (let [begin (db/get-first-ts market)
+        end (db/get-last-ts market)
         split-ts (long (+ begin (* 2/3 (- end begin))))
-        trades (db/get-trades begin split-ts)
+        trades (db/get-trades market begin split-ts)
         target-amt (market (get-target-amts))
         bs (bars/generate-bars target-amt trades)]
     (feature-dataset bs)))
