@@ -2,7 +2,8 @@
   (:require [algo-trader.config :refer [config price-slippage fee-mults]]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
-            [clojure.core.async :refer [<! go-loop]]))
+            [clojure.core.async :refer [<! go-loop]]
+            [clojure.tools.logging :as log]))
 
 (def oms-channels {})
 (def positions {})
@@ -29,6 +30,46 @@
         vol-scale (vol-scalar port-mtm price block-size vol)]
     (/ (* forecast vol-scale) (:scale-target config))))
 
+(defn handle-target [{:keys [market price forecast side vol]} p]
+  ;; todo
+  (log/info "live trading not done yet")
+  nil)
+
+(defn handle-response [msg p]
+  ;; todo
+  nil)
+
+(defn handle-fill [msg p]
+  ;; todo
+  nil)
+
+(defn handle-update [msg p]
+  ;; todo
+  nil)
+
+(defn handle-oms-data [{:keys [msg-type market] :as msg}]
+  (let [p (market positions)]
+    (condp = msg-type
+      :target
+      (handle-target msg p)
+      :response
+      (handle-response msg p)
+      :fill
+      (handle-fill msg p)
+      :update
+      (handle-update msg p)
+      nil)))
+
+(defn start-oms-handlers [channel-map]
+  (alter-var-root #'oms-channels merge channel-map)
+  (doseq [c (vals channel-map)]
+    (go-loop []
+      (when-let [x (<! c)]
+        (handle-oms-data x)
+        (recur)))))
+
+;;; paper trading logic ;;;
+
 (defn slipped-price [price side delta]
   ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
   (let [i (if (pos? delta)
@@ -36,7 +77,7 @@
             (if (= :buy side) 2 3))]
     (* price (nth price-slippage i))))
 
-(defn update-port! [price forecast side vol p]
+(defn update-paper-port! [price forecast side vol p]
   (:port-val
    (swap!
     p
@@ -57,22 +98,21 @@
             {:cash new-cash :shares target :port-val port-val})
           {:cash cash :shares shares :port-val port-mtm}))))))
 
-;; temp crude logic for "live" backtesting - just send estimate of portfolio rtn to statsd
-(defn handle-target [{:keys [market price forecast side vol]} p]
-  (let [port-val (update-port! price forecast side vol p)]
+(defn handle-paper-target [{:keys [market price forecast side vol]} p]
+  (let [port-val (update-paper-port! price forecast side vol p)]
     (statsd/gauge :port-val (pct-rtn @starting-cash port-val) (list market))))
 
-(defn handle-oms-data [{:keys [msg-type market] :as msg}]
+(defn handle-paper-data [{:keys [msg-type market] :as msg}]
   (let [p (market positions)]
     (condp = msg-type
       :target
-      (handle-target msg p)
+      (handle-paper-target msg p)
       nil)))
 
-(defn start-oms-handlers [channel-map]
+(defn start-paper-handlers [channel-map]
   (alter-var-root #'oms-channels merge channel-map)
   (doseq [c (vals channel-map)]
     (go-loop []
       (when-let [x (<! c)]
-        (handle-oms-data x)
+        (handle-paper-data x)
         (recur)))))

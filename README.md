@@ -27,7 +27,7 @@ Endpoints for both ftx.com and ftx.us are included, use the ones for your jurisd
  * Equity initialization
  * Runtime support for:
    * trading
-   * paper trading
+   * ~~paper trading~~
    * ~~backtesting~~
    * persisting live data
    * ~~querying historical data~~

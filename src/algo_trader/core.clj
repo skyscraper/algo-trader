@@ -88,7 +88,7 @@
       (recur))))
 
 (defn run
-  []
+  [paper?]
   (log/info "Connecting to statsd...")
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
@@ -107,7 +107,9 @@
     (log/info (format "starting equity per market: %,.2f" starting-cash))
     (oms/initialize-positions @markets starting-cash))
   (log/info "Starting OMS handlers...")
-  (oms/start-oms-handlers (generate-channel-map @markets))
+  (if paper?
+    (oms/start-paper-handlers (generate-channel-map @markets))
+    (oms/start-oms-handlers (generate-channel-map @markets)))
   (log/info "Starting market data handlers...")
   (start-md-handlers model/handle-trade trade-channels)
   (start-md-distributor)
@@ -147,8 +149,7 @@
   (let [{:keys [papertrading? backtest? collect? historical? underlying lookback append?]}
         (:options (cli/parse-opts args cli-options))]
     (cond
-      papertrading? nil ;; todo
       backtest? (backtest/run-all)
       collect? nil ;; todo
       historical? (db/fetch-and-store (market-kw underlying) lookback append?)
-      :else (run))))
+      :else (run papertrading?))))

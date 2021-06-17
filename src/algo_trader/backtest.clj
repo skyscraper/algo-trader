@@ -15,7 +15,7 @@
         scale (model/update-and-get-forecast-scale! market raw-fc)
         scaled-fc (clip model/fc-cap (* raw-fc scale))
         fdm-fc (clip model/fc-cap (* scaled-fc model/fdm))
-        port-val (oms/update-port! price fdm-fc side vol (market oms/positions))]
+        port-val (oms/update-paper-port! price fdm-fc side vol (market oms/positions))]
     [pred raw-fc scaled-fc fdm-fc scale port-val]))
 
 (def header ["pred" "raw-fc" "scaled-fc" "fdm-fc" "scale" "port-val"])

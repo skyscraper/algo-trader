@@ -70,11 +70,14 @@
         delta (* lookback-days 24 60 60)
         now (long (/ (System/currentTimeMillis) 1000))
         [start-ts end-ts] (if append?
-                            (if-let [start (long (/ (get-last-ts market) 1000))]
-                              [start (min now (+ start delta))]
+                            (if-let [start (get-last-ts market)]
+                              (let [start-s (long (/ start 1000))]
+                                [start-s (min now (+ start-s delta))])
                               [(- now delta) now])
-                            (let [end (or (long (/ (get-first-ts market) 1000)) now)]
-                              [(- end delta) end]))
+                            (if-let [end (get-first-ts market)]
+                              (let [end-s (long (/ end 1000))]
+                                [(- end-s delta) end-s])
+                              [(- now delta) now]))
         params {:start_time start-ts
                 :limit limit}
         next-end (atom end-ts)
