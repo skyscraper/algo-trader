@@ -35,17 +35,16 @@ jobs:
         with:
           lein: latest
 
-      - name: Compile app with leiningen
+      - name: Download app dependencies
+        run: lein deps
+
+      - name: Compile app
         run: mv "$(lein uberjar | sed -n 's/^Created \(.*standalone\.jar\)/\1/p')" app-standalone.jar
 
       - name: Build Docker image
         uses: docker/build-push-action@v2.5.0
-        env:
-          #ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: tdr-prod-algo-trader
-          IMAGE_TAG: ${{ github.sha }}
         with:
           context: .
           push: false
-          tags: $ECR_REPOSITORY:$IMAGE_TAG
-          # tags: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          tags: tdr-prod-algo-trader:${{ github.sha }}
+          # tags: ${{ steps.login-ecr.outputs.registry }}/tdr-prod-algo-trader:${{ github.sha }}
