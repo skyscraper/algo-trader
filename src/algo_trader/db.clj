@@ -4,20 +4,16 @@
             [algo-trader.utils :refer [underlying-kw]]
             [clojure.set :refer [rename-keys]]
             [clojure.string :refer [lower-case]]
-            [clojure.tools.logging :as log]
             [honey.sql :as sql]
             [honey.sql.helpers :as h]
             [java-time :refer [instant]]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time]))
 
-(def hypertable-template
-  "SELECT create_hypertable('%1$s', 'time');")
-
 (defn table-name [underlying]
   (keyword (lower-case (str (name underlying) "_trades"))))
 
-(defn create-hypertable [conn underlying]
+(defn create-table [conn underlying]
   (let [t-name (table-name underlying)]
     (jdbc/execute!
      conn
@@ -28,13 +24,7 @@
                           [:size :double :precision]
                           [:side [:char 1]]
                           [:liquidation :boolean]])
-         (sql/format {:pretty true})))
-    (try
-      (jdbc/execute!
-       conn
-       (-> [(format hypertable-template (name t-name))]))
-      (catch Exception e
-        (log/info (.getMessage e))))))
+         (sql/format {:pretty true})))))
 
 (defn get-ult-ts [market comp-kw]
   (try
@@ -84,7 +74,7 @@
         last-count (atom limit)
         ds (jdbc/get-datasource (:db config))]
     (with-open [conn (jdbc/get-connection ds)]
-      (create-hypertable conn underlying)
+      (create-table conn underlying)
       (while (>= @last-count limit)
         (let [trades (fetch-for-db path (assoc params :end_time @next-end))
               ct (count trades)]

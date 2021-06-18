@@ -60,9 +60,13 @@
 (defn market-kw [underlying]
   (uc-kw (str (name underlying) "-PERP")))
 
-(defn underlying-kw [market]
+(defn underlying-kw [market] ;; from MARKET
   (let [n (name market)]
     (uc-kw (subs n 0 (- (count n) 5)))))
+
+(defn spot-kw [market] ;; from MARKET
+  (let [n (name market)]
+    (uc-kw (str (subs n 0 (- (count n) 5)) "/USD"))))
 
 (defn get-target-amts []
   (reduce-kv

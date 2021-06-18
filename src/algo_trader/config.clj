@@ -2,6 +2,9 @@
   (:require [clojure.edn :as edn]))
 
 (def config (edn/read-string (slurp "resources/config.edn")))
+(def orders-ep "/orders")
+(def futures-ep "/futures")
+
 (def jump 2)
 (def fc-window-delta jump)
 (def fc-count (- (:num-windows config) fc-window-delta))

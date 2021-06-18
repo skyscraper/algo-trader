@@ -2,10 +2,8 @@
  ;; ftx config
  :ftx-api-key "<YOUR API KEY>"
  :ftx-secret-key "<YOUR SECRET KEY>"
- ;; use these two connections if not in the US
  :ftx-ws "wss://ftx.com/ws/"
  :ftx-api "https://ftx.com/api"
- ;; use these two connections if in the US - spot only, no futures :(
  :ftx-ws-us "wss://ftx.us/ws/"
  :ftx-api-us "https://ftx.us/api"
 

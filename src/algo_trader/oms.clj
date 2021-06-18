@@ -1,10 +1,13 @@
 (ns algo-trader.oms
-  (:require [algo-trader.config :refer [config price-slippage fee-mults]]
+  (:require [algo-trader.api :as api]
+            [algo-trader.config :refer [config price-slippage fee-mults]]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
             [clojure.core.async :refer [<! go-loop]]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [java-time :refer [instant]]))
 
+(def non-inflight-statuses #{:closed :local-cancel})
 (def oms-channels {})
 (def positions {})
 (def equity (atom 0.0))
@@ -18,7 +21,12 @@
    #'positions
    #(reduce
     (fn [acc x]
-      (assoc acc x (atom {:cash starting-cash :shares 0.0 :port-val starting-cash})))
+      (assoc acc x (atom {:cash starting-cash
+                          :shares 0.0
+                          :port-val starting-cash
+                          :order-id nil
+                          :order-inflight? false
+                          :order-submit-ts nil})))
     %
     markets)))
 
@@ -31,13 +39,38 @@
     (/ (* forecast vol-scale) (:scale-target config))))
 
 (defn handle-target [{:keys [market price forecast side vol]} p]
-  ;; todo
-  (log/info "live trading not done yet")
-  nil)
+  (let [{:keys [cash shares]} @p
+        port-mtm (+ (* shares price) cash)
+        target (get-target forecast port-mtm price vol)
+        delta-shares (- target shares)
+        thresh (Math/abs (* (:position-inertia-percent config) shares))]
+    (when (>= (Math/abs delta-shares) thresh)
+      (let [ord-id (str (java.util.UUID/randomUUID))
+            qty (Math/abs delta-shares)]
+        (swap! p assoc
+               :order-id ord-id
+               :order-inflight? true
+               :order-submit-ts (System/currentTimeMillis))
+        (api/market-order-async side qty market ord-id (market oms-channels))
+        (log/info (format "%s submitting TARGET %s %s %d" ord-id (name side) market qty))
+        (statsd/count :order-generated 1 (list market))))))
 
-(defn handle-response [msg p]
-  ;; todo
-  nil)
+(defn handle-response [{:keys [createdAt market status clientId]} p]
+  (let [{:keys [order-submit-ts order-id]} @p
+        kw-status (keyword status)]
+    (log/info (format "%s received RESPONSE %s" clientId status))
+    (if (= clientId order-id)
+      (if (non-inflight-statuses kw-status)
+        (swap! p assoc :event kw-status :order-inflight? false)
+        (do
+          (swap! p assoc :event kw-status)
+          (let [order-create-time (.toEpochMilli (instant createdAt))]
+            (statsd/distribution
+             :order-submit-time
+             (- order-create-time order-submit-ts)
+             (list market)))))
+      (log/warn (format "received mismatched RESPONSE for order %s but postion has %s"
+                        clientId order-id)))))
 
 (defn handle-fill [msg p]
   ;; todo
