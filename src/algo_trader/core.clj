@@ -7,17 +7,19 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw]]
+            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw
+                                       market-from-spot]]
             [cheshire.core :refer [parse-string]]
-            [clojure.core.async :refer [<! >! chan go-loop]]
+            [clojure.core.async :refer [<! >! chan go go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
             [clojure.tools.logging :as log]
             [manifold.deferred :refer [timeout!]]
-            [manifold.stream :refer [take!]]))
+            [manifold.stream :refer [consume take!]]))
 
 (def markets (atom nil))
 (def ftx-ws-conn nil)
+(def ftx-us-ws-conn nil)
 (def active? (atom true))
 (def ws-timeout (:ws-timeout-ms config))
 (def distribution-chan (chan 1000))
@@ -78,6 +80,27 @@
         (log/warn (str "unhandled ftx event: " payload)))
       (recur))))
 
+(defn reset-ftx-us!
+  "reset ftx-us ws connection"
+  []
+  (log/info "Connecting to orders and fills...")
+  (alter-var-root
+   #'ftx-us-ws-conn
+   (fn [_] (api/ftx-websocket (:ftx-ws-us config)))))
+
+(defn handle-orders-fills
+  [msg]
+  (go
+    (let [{:keys [channel data]} (-> (parse-string msg true)
+                                     (update :channel keyword)
+                                     (update-in [:data :market] market-from-spot))]
+      (>! ((:market data) oms/oms-channels) (assoc data :msg-type channel)))))
+
+(defn start-order-fill-handler
+  "Orders/fills consumer"
+  []
+  (consume handle-orders-fills ftx-us-ws-conn))
+
 (defn start-md-handlers
   "Starts a go-loop and applies a fn to every event received on a given channel.
    Event types should be homogenous."
@@ -93,6 +116,7 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
+  (reset-ftx-us!)
   (model/set-scale-target!)
   (let [target-amts (get-target-amts)]
     (model/initialize target-amts)
@@ -110,12 +134,16 @@
   (if paper?
     (oms/start-paper-handlers (generate-channel-map @markets))
     (oms/start-oms-handlers (generate-channel-map @markets)))
+  (log/info "Subscribing to orders and fills...")
+  (api/ftx-login ftx-us-ws-conn)
+  (api/ftx-subscribe ftx-us-ws-conn :orders)
+  (api/ftx-subscribe ftx-us-ws-conn :fills)
   (log/info "Starting market data handlers...")
   (start-md-handlers model/handle-trade trade-channels)
   (start-md-distributor)
   (start-md-main)
   (log/info "Subscribing to market data...")
-  (api/ftx-subscribe-all ftx-ws-conn :trades @markets)
+  (api/ftx-subscribe-all-markets ftx-ws-conn :trades @markets)
   (log/info "Started!")
   (.await signal))
 

@@ -4,8 +4,8 @@
  :ftx-secret-key "<YOUR SECRET KEY>"
  :ftx-ws "wss://ftx.com/ws/"
  :ftx-api "https://ftx.com/api"
- :ftx-ws-us "wss://ftx.us/ws/"
- :ftx-api-us "https://ftx.us/api"
+ :ftx-us-ws "wss://ftx.us/ws/"
+ :ftx-us-api "https://ftx.us/api"
 
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 

@@ -6,7 +6,7 @@ Crypto momentum trading
 
 The goal of this repo is to become a fully automated trading application. See below for progress and todos.
 
-Endpoints for both ftx.com and ftx.us are included, use the ones for your jurisdiction. This is an opinionated approach and is definitely not the only way to trade.
+This is an opinionated approach and is definitely not the only way to trade.
 
 ## Features/TODO:
 
@@ -22,11 +22,11 @@ Endpoints for both ftx.com and ftx.us are included, use the ones for your jurisd
  * ~~Backtesting~~
  * ~~Paper tradering~~
  * ~~Portfolio optimization~~ (now out of scope for my model)
- * Order placing logic
+ * ~~Order placing logic~~
  * Order management
  * Equity initialization
  * Runtime support for:
-   * trading
+   * ~~trading~~
    * ~~paper trading~~
    * ~~backtesting~~
    * persisting live data

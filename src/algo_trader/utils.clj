@@ -68,6 +68,10 @@
   (let [n (name market)]
     (uc-kw (str (subs n 0 (- (count n) 5)) "/USD"))))
 
+(defn market-from-spot [spot]
+  (let [n (name spot)]
+    (market-kw (subs n 0 (- (count n) 4)))))
+
 (defn get-target-amts []
   (reduce-kv
    (fn [m k v]

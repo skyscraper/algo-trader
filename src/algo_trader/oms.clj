@@ -38,7 +38,8 @@
         vol-scale (vol-scalar port-mtm price block-size vol)]
     (/ (* forecast vol-scale) (:scale-target config))))
 
-(defn handle-target [{:keys [market price forecast side vol]} p]
+(defn handle-target
+  [{:keys [market price forecast vol]} p]
   (let [{:keys [cash shares]} @p
         port-mtm (+ (* shares price) cash)
         target (get-target forecast port-mtm price vol)
@@ -46,7 +47,8 @@
         thresh (Math/abs (* (:position-inertia-percent config) shares))]
     (when (>= (Math/abs delta-shares) thresh)
       (let [ord-id (str (java.util.UUID/randomUUID))
-            qty (Math/abs delta-shares)]
+            qty (Math/abs delta-shares)
+            side (if (neg? delta-shares) :sell :buy)]
         (swap! p assoc
                :order-id ord-id
                :order-inflight? true
@@ -55,7 +57,8 @@
         (log/info (format "%s submitting TARGET %s %s %d" ord-id (name side) market qty))
         (statsd/count :order-generated 1 (list market))))))
 
-(defn handle-response [{:keys [createdAt market status clientId]} p]
+(defn handle-response
+  [{:keys [createdAt market status clientId]} p]
   (let [{:keys [order-submit-ts order-id]} @p
         kw-status (keyword status)]
     (log/info (format "%s received RESPONSE %s" clientId status))
@@ -72,26 +75,58 @@
       (log/warn (format "received mismatched RESPONSE for order %s but postion has %s"
                         clientId order-id)))))
 
-(defn handle-fill [msg p]
-  ;; todo
-  nil)
+(defn handle-fill
+  "updates portfolio values"
+  [{:keys [market fee price size] :as msg} p]
+  (let [side (keyword (:side msg))
+        match-time (.toEpochMilli (instant (:time msg)))
+        delta-cash (* size price (if (= side :buy) 1 -1))
+        delta-shares (if (= side :buy) size (- size))
+        {:keys [port-val order-submit-ts]}
+        (swap!
+         p
+         (fn [{:keys [cash shares] :as x}]
+           (let [new-cash (- cash delta-cash fee)
+                 new-shares (+ shares delta-shares)
+                 pos-val (* new-shares price)
+                 port-val (+ pos-val new-cash)]
+             (assoc x :cash new-cash :shares new-shares :port-val port-val))))]
+    (log/info (format "received FILL %s %d @ $%d" (name market) size price))
+    (statsd/gauge :port-val (pct-rtn @starting-cash port-val) (list market))
+    (statsd/distribution
+     :match-time
+     (- match-time order-submit-ts)
+     nil)
+    (statsd/count :fill-received 1 (list symbol))))
 
-(defn handle-update [msg p]
-  ;; todo
-  nil)
+(defn handle-order-update
+  "updates order status"
+  [{:keys [clientId status filledSize remainingSize]} p]
+  (let [{:keys [order-id]} @p
+        status-kw (keyword status)]
+    (log/info
+     (format "%s received UPDATE %s, filled %d, remaining: %d"
+             clientId status filledSize remainingSize))
+    (if (= clientId order-id)
+      (if (:closed (keyword status-kw))
+        (swap! p assoc :status status-kw :order-inflight? false)
+        (swap! p assoc :status status-kw))
+      (log/warn (format "received mismatched UPDATE for order %s but postion has %s"
+                        clientId order-id)))))
 
-(defn handle-oms-data [{:keys [msg-type market] :as msg}]
+(defn handle-oms-data
+  [{:keys [msg-type market] :as msg}]
   (let [p (market positions)]
     (condp = msg-type
       :target
       (handle-target msg p)
       :response
       (handle-response msg p)
-      :fill
+      :fills
       (handle-fill msg p)
-      :update
-      (handle-update msg p)
-      nil)))
+      :orders
+      (handle-order-update msg p)
+      (log/warn "unhandled oms msg-type: " msg-type))))
 
 (defn start-oms-handlers [channel-map]
   (alter-var-root #'oms-channels merge channel-map)

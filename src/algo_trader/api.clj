@@ -60,18 +60,27 @@
                                           :sign sig
                                           :time now}}))))
 
-(defn- ftx-subscription-manage [conn chan market op]
+(defn- ftx-subscription-manage-market [conn chan market op]
   (s/put! conn (generate-string {:op op :channel chan :market market})))
 
-(defn ftx-subscribe [conn chan market]
-  (ftx-subscription-manage conn chan market :subscribe))
+(defn ftx-subscribe-market [conn chan market]
+  (ftx-subscription-manage-market conn chan market :subscribe))
 
-(defn ftx-unsubscribe [conn chan market]
-  (ftx-subscription-manage conn chan market :unsubscribe))
+(defn ftx-unsubscribe-market [conn chan market]
+  (ftx-subscription-manage-market conn chan market :unsubscribe))
 
-(defn ftx-subscribe-all [conn chan markets]
+(defn ftx-subscribe-all-markets [conn chan markets]
   (doseq [market markets]
-    (ftx-subscribe conn chan market)))
+    (ftx-subscribe-market conn chan market)))
+
+(defn ftx-subscription-manage [conn chan op]
+  (s/put! conn (generate-string {:op op :channel chan})))
+
+(defn ftx-subscribe [conn chan]
+  (ftx-subscription-manage conn chan :subscribe))
+
+(defn ftx-unsubscribe [conn chan]
+  (ftx-subscription-manage conn chan :unsubscribe))
 
 (defn ftx [req-kw path body params auth?]
   (-> @((req-kw reqs)
@@ -85,11 +94,11 @@
       bs/to-string
       (parse-string true)))
 
-(defn ftx-async-us [req-kw path body auth? success-fn failure-fn]
+(defn ftx-us-async [req-kw path body auth? success-fn failure-fn]
   (let [body-str (when body (generate-string body))
         body-bs (when body-str (bs/to-byte-array body-str))
         resp ((req-kw reqs)
-              (str (:ftx-api-us config) path)
+              (str (:ftx-us-api config) path)
               {:headers
                (when auth?
                  (auth-headers (System/currentTimeMillis) req-kw path body-str))
@@ -128,7 +137,7 @@
               (log/error (format "async market order status %d for %s: %s"
                                  status (:market default) (:message b))))
             (log/error "async market order:" ex)))]
-    (ftx-async-us :POST orders-ep payload true success-fn failure-fn)))
+    (ftx-us-async :POST orders-ep payload true success-fn failure-fn)))
 
 (defn market-order-async [side qty market ord-id response-chan]
   (order-async :market false side qty nil market ord-id response-chan))
