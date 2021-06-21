@@ -23,7 +23,7 @@ This is an opinionated approach and is definitely not the only way to trade.
  * ~~Paper tradering~~
  * ~~Portfolio optimization~~ (now out of scope for my model)
  * ~~Order placing logic~~
- * Order management
+ * ~~Order management~~
  * Equity initialization
  * Runtime support for:
    * ~~trading~~
