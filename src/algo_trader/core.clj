@@ -39,7 +39,7 @@
   (log/info "restarting ftx")
   (.close ftx-ws-conn)
   (reset-ftx!)
-  (api/ftx-subscribe-all ftx-ws-conn :trades @markets))
+  (api/ftx-subscribe-all-markets ftx-ws-conn :trades @markets))
 
 (defn start-md-main
   "Main consumer for ftx messages"

@@ -1,14 +1,22 @@
 (ns algo-trader.db
   (:require [algo-trader.api :refer [fetch-for-db]]
-            [algo-trader.config :refer [config]]
             [algo-trader.utils :refer [underlying-kw]]
             [clojure.set :refer [rename-keys]]
             [clojure.string :refer [lower-case]]
+            [environ.core :refer [env]]
             [honey.sql :as sql]
             [honey.sql.helpers :as h]
             [java-time :refer [instant]]
             [next.jdbc :as jdbc]
             [next.jdbc.date-time]))
+
+;; temporary env var hack
+(def db
+  {:dbtype (:app-dbtype env "postgres")
+   :dbname (:app-dbname env "postgres")
+   :host (:app-dbhost env "localhost")
+   :user (:app-dbuser env "postgres")
+   :password (:app-dbpassword env "password")})
 
 (defn table-name [underlying]
   (keyword (lower-case (str (name underlying) "_trades"))))
@@ -31,7 +39,7 @@
     (let [tkw (table-name (underlying-kw market))
           tn (name tkw)
           t-time (keyword (str tn ".time"))
-          ds (jdbc/get-datasource (:db config))
+          ds (jdbc/get-datasource db)
           stmt (-> (h/select t-time)
                    (h/from tkw)
                    (h/order-by [t-time comp-kw])
@@ -72,7 +80,7 @@
                 :limit limit}
         next-end (atom end-ts)
         last-count (atom limit)
-        ds (jdbc/get-datasource (:db config))]
+        ds (jdbc/get-datasource db)]
     (with-open [conn (jdbc/get-connection ds)]
       (create-table conn underlying)
       (while (>= @last-count limit)
@@ -90,7 +98,7 @@
 (defn get-trades [market from-ts to-ts]
   (let [f-date (instant from-ts)
         t-date (instant to-ts)
-        ds (jdbc/get-datasource (:db config))
+        ds (jdbc/get-datasource db)
         tkw (table-name (underlying-kw market))
         tn (name tkw)
         t-time (keyword (str tn ".time"))
