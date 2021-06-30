@@ -159,8 +159,8 @@
                         (filter #(underlying-set (:underlying %)))))
         frac (/ (:est-bar-mins config) (as (duration 1 :days) :minutes))]
     (reduce
-     (fn [acc {:keys [name volumeUsd24h]}]
-       (assoc acc (keyword name) (* frac volumeUsd24h)))
+     (fn [acc {:keys [underlying volumeUsd24h]}]
+       (assoc acc underlying (* frac volumeUsd24h)))
      {}
      filtered)))
 

@@ -21,7 +21,7 @@
                  [org.clojure/tools.logging "1.1.0"]
                  [org.postgresql/postgresql "42.2.22"]
                  [org.clojure/tools.cli "1.0.206"]
-                 [techascent/tech.ml "5.01"]]
+                 [techascent/tech.ml "6.001"]]
   :repl-options {:init-ns algo-trader.core}
   :main algo-trader.core
   :aot :all)

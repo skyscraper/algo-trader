@@ -119,8 +119,9 @@
   (reset-ftx-us!)
   (model/set-scale-target!)
   (let [target-amts (get-target-amts)]
-    (model/initialize target-amts)
     (reset! markets (keys target-amts))
+    (model/initialize target-amts)
+    (model/load-models @markets)
     (doseq [[market target] target-amts]
       (log/info (format "%s target: %,.2f" (name market) target))))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))

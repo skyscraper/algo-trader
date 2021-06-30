@@ -2,11 +2,12 @@
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config scale-alpha fc-count]]
             [algo-trader.db :as db]
-            [algo-trader.oms :refer [oms-channels]]
+            [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [clip ewm-step epoch get-target-amts]]
+            [algo-trader.utils :refer [pct-rtn clip ewm-step epoch get-target-amts]]
             [clojure.core.async :refer [put!]]
             [clojure.tools.logging :as log]
+            [java-time :refer [as duration]]
             [taoensso.nippy :as nippy]
             [tech.v3.dataset :as ds]
             [tech.v3.dataset.modelling :as ds-mod]
@@ -32,11 +33,11 @@
   (atom {:mean (/ scale-target starting-scale) :scale starting-scale}))
 
 (defn model-fname [market]
-  (format "../resources/model_%s.npy" (name market)))
+  (format "resources/model_%s.npy" (name market)))
 
 (defn freeze-model [market m]
-  (let [model [(-> (update m :model-data dissoc :metrics)
-                   (update :options dissoc :watches))]]
+  (let [model (-> (update m :model-data dissoc :metrics)
+                  (update :options dissoc :watches))]
     (nippy/freeze-to-file (model-fname market) model)))
 
 (defn thaw-model [market]
@@ -68,8 +69,7 @@
                 {}
                 target-amts)]
     (alter-var-root #'model-data merge m-data)
-    (alter-var-root #'scales merge s-data)
-    (load-models (keys target-amts))))
+    (alter-var-root #'scales merge s-data)))
 
 (defn update-and-get-forecast-scale!
   "update raw forecast scaling values and return latest scale"
@@ -86,17 +86,16 @@
   (let [f (fn [i v] (keyword (str v i)))]
     (vec
      (concat (map-indexed f (repeat fc-count "ewmac"))
-             (map-indexed f (repeat (:lag config) "voi"))
-             (map-indexed f (repeat (:lag config) "oir"))
+             (map-indexed f (repeat fc-count "rsi"))
              [:mpb]))))
 
 (defn row [features]
   (zipmap header features))
 
-(defn model-predict [market features]
+(defn model-predict [model features]
   (let [xs (ds/->dataset [(row features)])]
     (try
-      (:diff (ml/predict xs (market @models)))
+      (:diff (ml/predict xs model))
       (catch Exception e
         (log/error "problem with prediction: " (.getMessage e))
         (vec (repeat (last (ds/shape xs)) 0.0))))))
@@ -105,7 +104,7 @@
   "get combined forecast for a market"
   [market {:keys [bars variance]}]
   (let [{:keys [features]} (first bars)
-        pred (first (model-predict market features))
+        pred (first (model-predict (market @models) features))
         raw-fc (/ pred (Math/sqrt variance))
         scale (update-and-get-forecast-scale! market raw-fc)]
     (->> (* raw-fc scale)
@@ -135,7 +134,7 @@
       (statsd/count :trade 1 l)
       (let [[forecast real?] (update-and-predict! market trade)]
         (when real?
-          (put! (market oms-channels)
+          (put! (market oms/oms-channels)
                 {:msg-type :target
                  :market market
                  :price price
@@ -170,7 +169,7 @@
 (defn gridsearch-options [train-test-split]
   (->> (gridsearchable-options (:model-type config))
        (gs/sobol-gridsearch)
-       (take 100)
+       (take 1000)
        (map #(test-options train-test-split %))
        (sort-by :loss)
        first ;; could potentially iterate on this more in the future...
@@ -185,19 +184,72 @@
                    :early-stopping-round 4)))
 
 (defn generate-model
-  [market target-amt trades]
-  (let [bs (bars/generate-bars target-amt trades)
-        dataset (feature-dataset bs)
-        train-test-split (ds-mod/train-test-split dataset)
-        model-options (gridsearch-options train-test-split)
-        m (get-model train-test-split model-options)]
-    (swap! models assoc market m)))
+  [dataset]
+  (let [train-test-split (ds-mod/train-test-split dataset)
+        model-options (gridsearch-options train-test-split)]
+    (get-model train-test-split model-options)))
+
+(defn fc-scale-val [market model features vol price side]
+  (let [pred (first (model-predict model features))
+        raw-fc (/ pred vol)
+        scale (update-and-get-forecast-scale! market raw-fc)
+        scaled-fc (clip fc-cap (* raw-fc scale))
+        fdm-fc (clip fc-cap (* scaled-fc fdm))
+        port-val (oms/update-paper-port! price fdm-fc side vol (market oms/positions))]
+    [pred raw-fc scaled-fc fdm-fc scale port-val]))
+
+(defn evaluate-model
+  [market model bs record-fn verbose?]
+  (doseq [{:keys [features sigma c last-side]} bs
+          :let [xs (fc-scale-val market model features sigma c last-side)
+                row (if verbose? xs [(last xs)])]]
+    (record-fn row)))
+
+(defn perf-search [market keep?]
+  (log/info "starting perf search")
+  (set-scale-target!)
+  (oms/initialize-equity (:test-market-notional config))
+  (let [end (db/get-last-ts market)
+        begin (- end (as (duration (:total-days config) :days) :millis))
+        split-ts (long (+ begin (* (:training-split config) (- end begin))))
+        target-amt (market (get-target-amts))
+        training-ds (->> (db/get-trades market begin split-ts)
+                         (bars/generate-bars target-amt)
+                         feature-dataset)
+        test-bars (->> (db/get-trades market split-ts end)
+                       (bars/generate-bars target-amt)
+                       reverse)
+        x (atom (or (thaw-model market) {:rtn 0.0 :sharpe 0.0}))]
+    (doseq [m (repeatedly 10 #(generate-model training-ds))]
+      (log/info "starting next loop...")
+      (let [a (atom [(:test-market-notional config)])
+            record-fn (fn [[x]] (swap! a conj x))]
+        (initialize {market target-amt})
+        (oms/initialize-positions [market] (:test-market-notional config))
+        (evaluate-model market m test-bars record-fn false)
+        (let [total-rtn (pct-rtn (first @a) (last @a))
+              rtns (map pct-rtn @a (rest @a))
+              n (count rtns)
+              mu (/ (apply + rtns) n)
+              sigma (Math/sqrt
+                     (/ (apply + (map #(Math/pow (- % mu) 2) rtns))
+                        n))
+              sharpe (/ mu sigma)]
+          (swap! x (fn [y]
+                     (if (> sharpe (:sharpe y 0.0))
+                       (assoc m :rtn total-rtn :sharpe sharpe)
+                       y)))
+          (log/info (format "mu: %f sharpe %f" mu sharpe)))))
+    (when keep?
+      (swap! models assoc market @x)
+      (freeze-model market @x))
+    @x))
 
 ;; convenience for testing
 (defn sample-dataset [market]
-  (let [begin (db/get-first-ts market)
-        end (db/get-last-ts market)
-        split-ts (long (+ begin (* 2/3 (- end begin))))
+  (let [end (db/get-last-ts market)
+        begin (- end (as (duration (:total-days config) :days) :millis))
+        split-ts (long (+ begin (* (:training-split config) (- end begin))))
         trades (db/get-trades market begin split-ts)
         target-amt (market (get-target-amts))
         bs (bars/generate-bars target-amt trades)]
