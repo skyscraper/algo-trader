@@ -10,19 +10,23 @@
  :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
 
  ;; model params
- :est-bar-mins 5.0
+ :est-bar-mins 10.0
  :bar-count 17
  :vol-span 36
  :window-start 2.0
  :num-windows 5
- :forecast-window 5
- :model-type :xgboost/regression
+ :included-features [:ewmacs
+                     :rsix
+                     :supertrend]
 
  ;; scaling
- :scale-span 100
+ :scale-span 1000
  :scale-target 10.0
  :scale-cap 20.0
- :starting-scale 0.015
+ :starting-scales [0.0073 0.0053 0.0038
+                   0.0105 0.0140 0.0168
+                   0.0073 0.0053 0.0038]
+ ;:weights [0.0 0.0 1.0]
  :fdm 1.17
 
  ;; volatility targeting
@@ -35,26 +39,25 @@
 
  ;; trade params
  :target-amts
- {:YFI 35434.90625,
-  :GRT 55737.48382708333,
-  :LTC 153091.5786395833,
-  :TRX 59513.081687534715,
-  :BCH 197059.588196875,
-  :SOL 672353.7285243055,
-  :BTC 1.0889599474138888E7,
-  :ETH 6682324.348718749,
-  :AAVE 91039.17049895834,
-  :LINK 225400.51802135416,
-  :DOGE 478337.89751821524,
-  :SUSHI 100433.84228923611,
-  :MATIC 366219.1236386197,
-  :MKR 23256.039838541667,
-  :UNI 62616.075160416665}
+ {:YFI 32622.18006944444,
+  :GRT 89979.60989027777,
+  :LTC 218205.09930069442,
+  :TRX 71056.44659380209,
+  :BCH 192727.275953125,
+  :SOL 501178.4804166667,
+  :BTC 1.4491535895575693E7,
+  :ETH 1.2776200894338192E7,
+  :AAVE 175474.60026527778,
+  :LINK 386316.15274131944,
+  :DOGE 1104080.2672149653,
+  :SUSHI 353966.47102743055,
+  :MATIC 1385925.1371276213,
+  :MKR 23331.570576388887,
+  :UNI 109040.05235486111}
  :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
- :test-market-notional 10000.0
+ :test-market-notional 100.0
 
  ;; backtesting
- :total-days 9
- :training-split 4/5
+ :total-days 7
  }

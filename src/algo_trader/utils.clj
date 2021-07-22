@@ -19,6 +19,11 @@
     observed
     (+ (* alpha observed) (* (- 1.0 alpha) previous))))
 
+(defn sma-step [previous observed period]
+  (if (nil? previous)
+    observed
+    (/ (+ (* previous (dec period)) observed) period)))
+
 (defn clip [cap x]
   (cond
     (> x cap) cap
