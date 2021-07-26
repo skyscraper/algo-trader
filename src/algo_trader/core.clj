@@ -110,6 +110,14 @@
       (f (<! c))
       (recur))))
 
+(defn paper-setup []
+  (reset-ftx-us!)
+  (oms/start-paper-handlers (generate-channel-map @markets))
+  (log/info "Subscribing to orders and fills...")
+  (api/ftx-login ftx-us-ws-conn)
+  (api/ftx-subscribe ftx-us-ws-conn :orders)
+  (api/ftx-subscribe ftx-us-ws-conn :fills))
+
 (defn run
   [paper?]
   (log/info (format "Starting trader in %s mode" (if paper? "PAPER" "PRODUCTION")))
@@ -117,8 +125,6 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
-  (when (not paper?)
-    (reset-ftx-us!))
   (let [target-amts (get-target-amts)]
     (reset! markets (keys target-amts))
     (model/initialize target-amts)
@@ -133,12 +139,8 @@
     (oms/initialize-positions @markets starting-cash))
   (log/info "Starting OMS handlers...")
   (if paper?
-    (oms/start-paper-handlers (generate-channel-map @markets))
+    (paper-setup)
     (oms/start-oms-handlers (generate-channel-map @markets)))
-  (log/info "Subscribing to orders and fills...")
-  (api/ftx-login ftx-us-ws-conn)
-  (api/ftx-subscribe ftx-us-ws-conn :orders)
-  (api/ftx-subscribe ftx-us-ws-conn :fills)
   (log/info "Starting market data handlers...")
   (start-md-handlers model/handle-trade trade-channels)
   (start-md-distributor)
