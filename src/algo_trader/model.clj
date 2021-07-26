@@ -7,16 +7,13 @@
             [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
-(def scale-target 0.0)
+(def scale-target (:scale-target config))
 (def scales {})
 (def weights (or (:weights config) default-weights))
 (def fdm (:fdm config))
 (def fc-cap (:scale-cap config))
 (def no-result [0.0 false])
 (def model-data {})
-
-(defn set-scale-target! []
-  (alter-var-root #'scale-target (constantly (:scale-target config))))
 
 (defn default-scale [starting-scale]
   (atom {:mean (/ scale-target starting-scale) :scale starting-scale}))
@@ -64,7 +61,7 @@
     (->> features
          (map-indexed
           (fn [idx x]
-            (last  ;; last of each tuple, see above
+            (last ;; last of each tuple, see above
              (predict-single market vol idx x)))) 
          (dot-product weights)
          (* fdm)

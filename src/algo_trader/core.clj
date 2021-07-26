@@ -117,7 +117,6 @@
   (log/info "Connecting to ftx...")
   (reset-ftx!)
   (reset-ftx-us!)
-  (model/set-scale-target!)
   (let [target-amts (get-target-amts)]
     (reset! markets (keys target-amts))
     (model/initialize target-amts)
