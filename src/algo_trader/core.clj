@@ -112,6 +112,7 @@
 
 (defn run
   [paper?]
+  (log/info (format "Starting trader in %s mode" (if paper? "PAPER" "PRODUCTION")))
   (log/info "Connecting to statsd...")
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")

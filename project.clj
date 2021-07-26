@@ -5,7 +5,7 @@
             :url "http://opensource.org/licenses/MIT"
             :distribution :repo}
   :dependencies [[aleph "0.4.7-alpha7"]
-                 [ch.qos.logback/logback-classic "1.2.4"]
+                 [ch.qos.logback/logback-classic "1.2.5"]
                  [cheshire "5.10.1"]
                  [clojure.java-time "0.3.2"]
                  [com.datadoghq/java-dogstatsd-client "2.13.0"]
