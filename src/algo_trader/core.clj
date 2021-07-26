@@ -86,7 +86,7 @@
   (log/info "Connecting to orders and fills...")
   (alter-var-root
    #'ftx-us-ws-conn
-   (fn [_] (api/ftx-websocket (:ftx-ws-us config)))))
+   (fn [_] (api/ftx-websocket (:ftx-us-ws config)))))
 
 (defn handle-orders-fills
   [msg]
@@ -117,7 +117,8 @@
   (statsd/reset-statsd!)
   (log/info "Connecting to ftx...")
   (reset-ftx!)
-  (reset-ftx-us!)
+  (when (not paper?)
+    (reset-ftx-us!))
   (let [target-amts (get-target-amts)]
     (reset! markets (keys target-amts))
     (model/initialize target-amts)
