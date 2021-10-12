@@ -78,11 +78,7 @@
     (market-kw (subs n 0 (- (count n) 4)))))
 
 (defn get-target-amts []
-  (reduce-kv
-   (fn [m k v]
-     (assoc m (market-kw k) v))
-   {}
-   (:target-amts config)))
+  (:target-amts config))
 
 ;;; core.async ;;;
 (defn generate-channel-map [markets]

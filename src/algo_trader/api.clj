@@ -3,12 +3,12 @@
             [algo-trader.config :refer [config orders-ep futures-ep]]
             [algo-trader.utils :refer [spot-kw]]
             [byte-streams :as bs]
-            [cheshire.core :refer [generate-string parse-string]]
             [clojure.core.async :refer [<! put! go-loop timeout]]
-            [clojure.tools.logging :as log]
             [java-time :refer [as duration instant]]
+            [jsonista.core :as json]
             [manifold.deferred :as d]
-            [manifold.stream :as s])
+            [manifold.stream :as s]
+            [taoensso.timbre :as log])
   (:import (javax.crypto Mac)
            (javax.crypto.spec SecretKeySpec)
            (org.apache.commons.codec.binary Hex)))
@@ -16,7 +16,7 @@
 (def algo "HmacSHA256")
 (def fmt "UTF-8")
 (def signing-key (SecretKeySpec. (.getBytes (:ftx-secret-key config) fmt) algo))
-(def ping (generate-string {:op :ping}))
+(def ping (json/write-value-as-string {:op :ping}))
 (def ws-str "%swebsocket_login")
 (def api-str "%s%s%s%s")
 (def empty-str "")
@@ -55,13 +55,13 @@
 (defn ftx-login [conn]
   (let [now (System/currentTimeMillis)
         sig (hmac (ws-sig now))]
-    (s/put! conn (generate-string {:op :login
-                                   :args {:key (:ftx-api-key config)
-                                          :sign sig
-                                          :time now}}))))
+    (s/put! conn (json/write-value-as-string {:op :login
+                                              :args {:key (:ftx-api-key config)
+                                                     :sign sig
+                                                     :time now}}))))
 
 (defn- ftx-subscription-manage-market [conn chan market op]
-  (s/put! conn (generate-string {:op op :channel chan :market market})))
+  (s/put! conn (json/write-value-as-string {:op op :channel chan :market market})))
 
 (defn ftx-subscribe-market [conn chan market]
   (ftx-subscription-manage-market conn chan market :subscribe))
@@ -74,7 +74,7 @@
     (ftx-subscribe-market conn chan market)))
 
 (defn ftx-subscription-manage [conn chan op]
-  (s/put! conn (generate-string {:op op :channel chan})))
+  (s/put! conn (json/write-value-as-string {:op op :channel chan})))
 
 (defn ftx-subscribe [conn chan]
   (ftx-subscription-manage conn chan :subscribe))
@@ -89,13 +89,13 @@
                     (auth-headers (System/currentTimeMillis) req-kw path nil))
          :query-params params
          :body (when body
-                 (bs/to-byte-array (generate-string body)))})
+                 (bs/to-byte-array (json/write-value-as-string body)))})
       :body
       bs/to-string
-      (parse-string true)))
+      (json/read-value json/keyword-keys-object-mapper)))
 
 (defn ftx-us-async [req-kw path body auth? success-fn failure-fn]
-  (let [body-str (when body (generate-string body))
+  (let [body-str (when body (json/write-value-as-string body))
         body-bs (when body-str (bs/to-byte-array body-str))
         resp ((req-kw reqs)
               (str (:ftx-us-api config) path)
@@ -121,7 +121,7 @@
           (try
             (->> body
                  bs/to-string
-                 (#(parse-string % true))
+                 (#(json/read-value % json/keyword-keys-object-mapper))
                  :result
                  (merge default)
                  (merge {:market market})
@@ -133,7 +133,7 @@
         (fn [ex]
           (put! response-chan default)
           (if-let [{:keys [status body]} (ex-data ex)]
-            (let [b (-> body bs/to-string (parse-string true))]
+            (let [b (-> body bs/to-string (json/read-value json/keyword-keys-object-mapper))]
               (log/error (format "async market order status %d for %s: %s"
                                  status (:market default) (:message b))))
             (log/error "async market order:" ex)))]

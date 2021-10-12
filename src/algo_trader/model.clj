@@ -2,8 +2,7 @@
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config default-weights scale-alpha]]
             [algo-trader.oms :as oms]
-            [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [dot-product clip ewm-step epoch]]
+            [algo-trader.utils :refer [dot-product clip ewm-step]]
             [clojure.core.async :refer [put!]]))
 
 (def bar-count (:bar-count config))
@@ -78,25 +77,17 @@
         no-result))
     no-result))
 
-(defn handle-trade [{:keys [market data]}]
-  (let [now (System/currentTimeMillis)
-        l (list market)]
-    (doseq [{:keys [price time] :as trade} data
-            :let [trade-time (epoch time)
-                  trade-delay (- now trade-time)
-                  trade (update trade :side keyword)]]
-      (statsd/distribution :trade-delay trade-delay nil)
-      (statsd/count :trade 1 l)
-      (let [[forecast real?] (update-and-predict! market trade)]
-        (when real?
-          (put! (market oms/oms-channels)
-                {:msg-type :target
-                 :market market
-                 :price price
-                 :forecast forecast
-                 :side (:side trade)
-                 :vol (Math/sqrt (:variance @(market model-data)))
-                 :ts trade-time}))))))
+(defn handle-trade [market {:keys [price time] :as trade}]
+  (let [[forecast real?] (update-and-predict! market trade)]
+    (when real?
+      (put! (market oms/oms-channels)
+            {:msg-type :target
+             :market market
+             :price price
+             :forecast forecast
+             :side (:side trade)
+             :vol (Math/sqrt (:variance @(market model-data)))
+             :ts time}))))
 
 (defn fc-scale-val [market features vol price side]
   (let [xs (map-indexed (fn [idx x] (predict-single market vol idx x)) features)

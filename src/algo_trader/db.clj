@@ -13,10 +13,10 @@
 ;; temporary env var hack
 (def db
   {:dbtype (:app-dbtype env "postgres")
-   :dbname (:app-dbname env "postgres")
-   :host (:app-dbhost env "localhost")
-   :user (:app-dbuser env "postgres")
-   :password (:app-dbpassword env "password")})
+   :dbname (:app-dbname env "trader_db")
+   :host (:app-dbhost env "trader.cfnln8k63rer.eu-west-2.rds.amazonaws.com")
+   :user (:app-dbuser env "trader_user")
+   :password (:app-dbpassword env "sjOHWRzP5524nYWdt4MQ")})
 
 (defn table-name [underlying]
   (keyword (lower-case (str (name underlying) "_trades"))))

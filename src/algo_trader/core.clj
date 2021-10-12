@@ -4,18 +4,28 @@
             [algo-trader.db :as db]
             [algo-trader.backtest :as backtest]
             [algo-trader.config :refer [config hardcoded-eq]]
+            [algo-trader.handlers
+             [binance :as binance]
+             [binance-inv :as binance-inv]
+             [bybit :as bybit]
+             [bybit-inv :as bybit-inv]
+             [deribit :as deribit]
+             [ftx :as ftx]
+             [huobi :as huobi]
+             [huobi-inv :as huobi-inv]
+             [kraken-inv :as kraken-inv]
+             [okex :as okex]]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw
                                        market-from-spot]]
-            [cheshire.core :refer [parse-string]]
             [clojure.core.async :refer [<! >! chan go go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
-            [clojure.tools.logging :as log]
-            [manifold.deferred :refer [timeout!]]
-            [manifold.stream :refer [consume take!]]))
+            [jsonista.core :as json]
+            [manifold.stream :refer [consume]]
+            [taoensso.timbre :as log]))
 
 (def markets (atom nil))
 (def ftx-ws-conn nil)
@@ -27,71 +37,10 @@
 (def quote-channels {})
 (def signal (java.util.concurrent.CountDownLatch. 1))
 
-(defn reset-ftx!
-  "reset ftx ws connection"
-  []
-  (log/info "Connecting to market data stream...")
-  (alter-var-root
-   #'ftx-ws-conn
-   (fn [_] (api/ftx-websocket (:ftx-ws config)))))
-
-(defn restart-ftx! []
-  (log/info "restarting ftx")
-  (.close ftx-ws-conn)
-  (reset-ftx!)
-  (api/ftx-subscribe-all-markets ftx-ws-conn :trades @markets))
-
-(defn start-md-main
-  "Main consumer for ftx messages"
-  []
-  (go-loop []
-    (if @active?
-      (if-let [raw @(timeout! (take! ftx-ws-conn) ws-timeout nil)]
-        (do
-          (>! distribution-chan raw)
-          (recur))
-        (do
-          (log/error "Stopped receiving ftx websocket data! Attempting to reconnect...")
-          (restart-ftx!)
-          (recur)))
-      (log/info "exiting market data processing loop..."))))
-
-(defn start-md-distributor
-  "parse and distribute md messgaes"
-  []
-  (go-loop []
-    (let [raw (<! distribution-chan)
-          {:keys [channel market type code msg] :as payload}
-          (update (parse-string raw true) :type keyword)]
-      (statsd/count :ws-msg 1 nil)
-      (condp = type
-        :update (let [event (update payload :market keyword)
-                      c ((:market event) trade-channels)]
-                  (when c
-                    (>! c event)))
-        :partial (log/warn (format "received partial event: %s" payload)) ;; not currently implemented
-        :info (do (log/info (format "ftx info: %s %s" code msg))
-                  (when (= code 20001)
-                    (restart-ftx!)))
-        :subscribed (log/info (format "subscribed to %s %s" market channel))
-        :unsubscribed (log/info (format "unsubscribed from %s %s" market channel))
-        :error (log/error (format "ftx error: %s %s" code msg))
-        :pong (log/debug "pong")
-        (log/warn (str "unhandled ftx event: " payload)))
-      (recur))))
-
-(defn reset-ftx-us!
-  "reset ftx-us ws connection"
-  []
-  (log/info "Connecting to orders and fills...")
-  (alter-var-root
-   #'ftx-us-ws-conn
-   (fn [_] (api/ftx-websocket (:ftx-us-ws config)))))
-
 (defn handle-orders-fills
   [msg]
   (go
-    (let [{:keys [channel data]} (-> (parse-string msg true)
+    (let [{:keys [channel data]} (-> (json/read-value msg json/keyword-keys-object-mapper)
                                      (update :channel keyword)
                                      (update-in [:data :market] market-from-spot))]
       (>! ((:market data) oms/oms-channels) (assoc data :msg-type channel)))))
@@ -105,14 +54,29 @@
   "Starts a go-loop and applies a fn to every event received on a given channel.
    Event types should be homogenous."
   [f channels]
-  (doseq [c (vals channels)]
+  (doseq [[sym ch] channels]
     (go-loop []
-      (f (<! c))
+      (f sym (<! ch))
       (recur))))
 
+(def inits
+  [binance/init
+   binance-inv/init
+   bybit/init
+   bybit-inv/init
+   deribit/init
+   ftx/init
+   huobi/init
+   huobi-inv/init
+   kraken-inv/init
+   okex/init])
+
 (defn paper-setup []
-  (reset-ftx-us!)
-  (oms/start-paper-handlers (generate-channel-map @markets))
+  (oms/start-paper-handlers (generate-channel-map @markets)))
+
+(defn prod-setup []
+  #_(reset-ftx-us!) ;; todo: create ftx.us market data handler that can also login and subscribe
+  (oms/start-oms-handlers (generate-channel-map @markets))
   (log/info "Subscribing to orders and fills...")
   (api/ftx-login ftx-us-ws-conn)
   (api/ftx-subscribe ftx-us-ws-conn :orders)
@@ -120,11 +84,11 @@
 
 (defn run
   [paper?]
+  (log/swap-config! assoc :appenders {:spit (log/spit-appender {:fname "./logs/app.log"})})
+  (log/set-level! :info)
   (log/info (format "Starting trader in %s mode" (if paper? "PAPER" "PRODUCTION")))
   (log/info "Connecting to statsd...")
   (statsd/reset-statsd!)
-  (log/info "Connecting to ftx...")
-  (reset-ftx!)
   (let [target-amts (get-target-amts)]
     (reset! markets (keys target-amts))
     (model/initialize target-amts)
@@ -140,13 +104,12 @@
   (log/info "Starting OMS handlers...")
   (if paper?
     (paper-setup)
-    (oms/start-oms-handlers (generate-channel-map @markets)))
+    (prod-setup))
   (log/info "Starting market data handlers...")
   (start-md-handlers model/handle-trade trade-channels)
-  (start-md-distributor)
-  (start-md-main)
-  (log/info "Subscribing to market data...")
-  (api/ftx-subscribe-all-markets ftx-ws-conn :trades @markets)
+  (log/info "Connecting to exchanges and subscribing to market data...")
+  (doseq [init inits]
+    (init @trade-channels))
   (log/info "Started!")
   (.await signal))
 

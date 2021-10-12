@@ -4,8 +4,8 @@
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
             [clojure.core.async :refer [<! go-loop]]
-            [clojure.tools.logging :as log]
-            [java-time :refer [instant]]))
+            [java-time :refer [instant]]
+            [taoensso.timbre :as log]))
 
 (def non-inflight-statuses #{:closed :local-cancel})
 (def oms-channels {})

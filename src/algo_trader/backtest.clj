@@ -7,8 +7,8 @@
             [algo-trader.utils :refer [get-target-amts]]
             [clojure.data.csv :refer [write-csv]]
             [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
-            [java-time :refer [as duration]]))
+            [java-time :refer [as duration]]
+            [taoensso.timbre :as log]))
 
 (def header-base [:raw-fc :scale :scaled-fc])
 (def rest-header [:combined :fdm-fc :port-val])
