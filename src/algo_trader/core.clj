@@ -109,7 +109,7 @@
   (start-md-handlers model/handle-trade trade-channels)
   (log/info "Connecting to exchanges and subscribing to market data...")
   (doseq [init inits]
-    (init @trade-channels))
+    (init trade-channels))
   (log/info "Started!")
   (.await signal))
 
