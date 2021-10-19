@@ -2,8 +2,8 @@
   (:require [aleph.http :as http]
             [algo-trader.statsd :as statsd]
             [byte-streams :as bs]
-            [clojure.core.async :refer [<! >! chan go go-loop timeout]]
-            [clojure.string :refer [lower-case upper-case]]
+            [clojure.core.async :refer [<! >! go go-loop timeout]]
+            [clojure.string :refer [lower-case]]
             [java-time :refer [instant zoned-date-time]]
             [jsonista.core :as json]
             [manifold.deferred :as d]
@@ -15,19 +15,6 @@
 (def side-str "side")
 (def inv-true "inverse:true")
 (def inv-false "inverse:false")
-
-;; formatting
-(defn uc-kw
-  "upper-case keyword"
-  [kw-or-str]
-  (-> kw-or-str name upper-case keyword))
-
-;; core.async
-(defn generate-channel-map [symbols]
-  (reduce
-   #(assoc %1 (uc-kw %2) (chan 10000))
-   {}
-   symbols))
 
 ;; exchange specific map
 (defn info-map [existing rename-fn trade-channels]

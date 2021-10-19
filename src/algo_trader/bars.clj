@@ -9,16 +9,16 @@
 (def base {:amt 0.0 :v 0.0})
 
 (def feature-base
-  {:ewms (repeat (:num-windows config) nil)
-   :gains '()
-   :losses '()
+  {:ewms        (repeat (:num-windows config) nil)
+   :gains       '()
+   :losses      '()
    :st-features (repeat fc-count {})})
 
 (defn bar-base [target-amt]
-  {:current base
-   :bars '()
+  {:current       base
+   :bars          '()
    :features-data feature-base
-   :target-amt target-amt})
+   :target-amt    target-amt})
 
 (defn update-bar [bar {:keys [price size side]}]
   (-> (update bar :o (fnil identity price))
@@ -68,10 +68,10 @@
         trend (if (and (zero? x) (zero? y))
                 (:trend st-features 0.0)
                 (if (> x (Math/abs y)) x y))]
-    {:atr atr
-     :trend-up trend-up
+    {:atr        atr
+     :trend-up   trend-up
      :trend-down trend-down
-     :trend trend}))
+     :trend      trend}))
 
 (defn add-to-bars
   [{:keys [current bars features-data variance target-amt] :as acc}
@@ -107,23 +107,23 @@
             new-variance (ewm-step variance sq-rtn vol-alpha)
             sigma (Math/sqrt new-variance)
             new-bar (assoc updated
-                           :features features
-                           :diff diff
-                           :sigma sigma)]
+                      :features features
+                      :diff diff
+                      :sigma sigma)]
         (assoc
-         (update acc :bars conj new-bar)
-         :current base
-         :features-data {:ewms new-ewms
-                         :gains new-gains
-                         :losses new-losses
-                         :st-features new-st-features}
-         :variance new-variance))
+          (update acc :bars conj new-bar)
+          :current base
+          :features-data {:ewms        new-ewms
+                          :gains       new-gains
+                          :losses      new-losses
+                          :st-features new-st-features}
+          :variance new-variance))
       (assoc acc :current updated))))
 
 (defn generate-bars [target-amt trades]
   (->> (reduce
-        add-to-bars
-        (bar-base target-amt)
-        trades)
+         add-to-bars
+         (bar-base target-amt)
+         trades)
        :bars
        (drop-last (:bar-count config))))

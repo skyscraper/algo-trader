@@ -22,14 +22,14 @@
 
 (defn initialize [target-amts]
   (let [m-data (reduce-kv
-                (fn [acc market target-amt]
-                  (assoc acc market (atom (bars/bar-base target-amt))))
-                {}
-                target-amts)
+                 (fn [acc market target-amt]
+                   (assoc acc market (atom (bars/bar-base target-amt))))
+                 {}
+                 target-amts)
         s-data (reduce-kv
-                (fn [acc market _] (assoc acc market (clean-scales)))
-                {}
-                target-amts)]
+                 (fn [acc market _] (assoc acc market (clean-scales)))
+                 {}
+                 target-amts)]
     (alter-var-root #'model-data merge m-data)
     (alter-var-root #'scales merge s-data)))
 
@@ -37,17 +37,17 @@
   "update raw forecast scaling values and return latest scale"
   [market idx raw-forecast]
   (:scale
-   (swap!
-    (get-in scales [market idx])
-    (fn [{:keys [mean]}]
-      (let [new-mean (ewm-step mean (Math/abs raw-forecast) scale-alpha)
-            new-scale (/ scale-target new-mean)]
-        {:mean new-mean :scale new-scale})))))
+    (swap!
+      (get-in scales [market idx])
+      (fn [{:keys [mean]}]
+        (let [new-mean (ewm-step mean (Math/abs raw-forecast) scale-alpha)
+              new-scale (/ scale-target new-mean)]
+          {:mean new-mean :scale new-scale})))))
 
 (defn predict-single
   "get prediction for a single window of a market"
   [market vol idx x]
-  (let [raw-fc (/ x vol) ;; volatility standardization
+  (let [raw-fc (/ x vol)                                    ;; volatility standardization
         scale (update-and-get-forecast-scale! market idx raw-fc)
         scaled-fc (clip fc-cap (* raw-fc scale))]
     [raw-fc scale scaled-fc]))
@@ -59,9 +59,9 @@
         vol (Math/sqrt variance)]
     (->> features
          (map-indexed
-          (fn [idx x]
-            (last ;; last of each tuple, see above
-             (predict-single market vol idx x)))) 
+           (fn [idx x]
+             (last                                          ;; last of each tuple, see above
+               (predict-single market vol idx x))))
          (dot-product weights)
          (* fdm)
          (clip fc-cap))))
@@ -82,12 +82,12 @@
     (when real?
       (put! (market oms/oms-channels)
             {:msg-type :target
-             :market market
-             :price price
+             :market   market
+             :price    price
              :forecast forecast
-             :side (:side trade)
-             :vol (Math/sqrt (:variance @(market model-data)))
-             :ts time}))))
+             :side     (:side trade)
+             :vol      (Math/sqrt (:variance @(market model-data)))
+             :ts       time}))))
 
 (defn fc-scale-val [market features vol price side]
   (let [xs (map-indexed (fn [idx x] (predict-single market vol idx x)) features)

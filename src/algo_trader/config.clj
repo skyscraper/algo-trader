@@ -36,7 +36,7 @@
 (def scale-alpha
   (get-alpha (:scale-span config)))
 
-(def hardcoded-eq ;; for testing
+(def hardcoded-eq                                           ;; for testing
   (let [c (count (:target-amts config))
         n-markets (if (zero? c) (:num-markets config) c)]
     (* n-markets (:test-market-notional config))))

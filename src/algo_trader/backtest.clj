@@ -13,9 +13,9 @@
 (def header-base [:raw-fc :scale :scaled-fc])
 (def rest-header [:combined :fdm-fc :port-val])
 (def header (let [xs (mapcat
-                      (fn [i]
-                        (map #(str (name %) i) header-base))
-                      (range total-fc-count))]
+                       (fn [i]
+                         (map #(str (name %) i) header-base))
+                       (range total-fc-count))]
               (vec (concat xs (mapv name rest-header)))))
 
 (defn run

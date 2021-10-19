@@ -1,9 +1,8 @@
 (ns algo-trader.core
   (:gen-class)
-  (:require [algo-trader.api :as api]
-            [algo-trader.db :as db]
+  (:require [algo-trader.db :as db]
             [algo-trader.backtest :as backtest]
-            [algo-trader.config :refer [config hardcoded-eq]]
+            [algo-trader.config :refer [hardcoded-eq]]
             [algo-trader.handlers
              [binance :as binance]
              [binance-inv :as binance-inv]
@@ -11,6 +10,7 @@
              [bybit-inv :as bybit-inv]
              [deribit :as deribit]
              [ftx :as ftx]
+             [ftx-us :as ftx-us]
              [huobi :as huobi]
              [huobi-inv :as huobi-inv]
              [kraken-inv :as kraken-inv]
@@ -20,22 +20,16 @@
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw
                                        market-from-spot]]
-            [clojure.core.async :refer [<! >! chan go go-loop]]
+            [clojure.core.async :refer [<! >! go go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
             [jsonista.core :as json]
-            [manifold.stream :refer [consume]]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log])
+  (:import (java.util.concurrent CountDownLatch)))
 
 (def markets (atom nil))
-(def ftx-ws-conn nil)
-(def ftx-us-ws-conn nil)
-(def active? (atom true))
-(def ws-timeout (:ws-timeout-ms config))
-(def distribution-chan (chan 1000))
 (def trade-channels {})
-(def quote-channels {})
-(def signal (java.util.concurrent.CountDownLatch. 1))
+(def signal (CountDownLatch. 1))
 
 (defn handle-orders-fills
   [msg]
@@ -44,11 +38,6 @@
                                      (update :channel keyword)
                                      (update-in [:data :market] market-from-spot))]
       (>! ((:market data) oms/oms-channels) (assoc data :msg-type channel)))))
-
-(defn start-order-fill-handler
-  "Orders/fills consumer"
-  []
-  (consume handle-orders-fills ftx-us-ws-conn))
 
 (defn start-md-handlers
   "Starts a go-loop and applies a fn to every event received on a given channel.
@@ -75,12 +64,9 @@
   (oms/start-paper-handlers (generate-channel-map @markets)))
 
 (defn prod-setup []
-  #_(reset-ftx-us!) ;; todo: create ftx.us market data handler that can also login and subscribe
-  (oms/start-oms-handlers (generate-channel-map @markets))
   (log/info "Subscribing to orders and fills...")
-  (api/ftx-login ftx-us-ws-conn)
-  (api/ftx-subscribe ftx-us-ws-conn :orders)
-  (api/ftx-subscribe ftx-us-ws-conn :fills))
+  (oms/start-oms-handlers (generate-channel-map @markets))
+  (ftx-us/init oms/oms-channels))
 
 (defn run
   [paper?]
@@ -144,6 +130,6 @@
         (:options (cli/parse-opts args cli-options))]
     (cond
       backtest? (backtest/run-all)
-      collect? nil ;; todo
+      collect? nil                                          ;; todo
       historical? (db/fetch-and-store (market-kw underlying) lookback append?)
       :else (run papertrading?))))

@@ -31,7 +31,7 @@
       :info (do (log/info (format "ftx info: %s %s" code msg))
                 (when (= code 20001)
                   (log/info (name exch) "server requested us to reconnect...")
-                  (s/close! conn))) ;; theoretically registered callback will fire
+                  (s/close! conn)))
       :subscribed (log/info (format "subscribed to %s %s" market channel))
       :unsubscribed (log/info (format "unsubscribed from %s %s" market channel))
       :error (log/error (format "ftx error: %s %s" code msg))

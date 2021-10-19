@@ -1,13 +1,7 @@
 {
  ;; ftx config
- :ftx-api-key "<YOUR API KEY>"
- :ftx-secret-key "<YOUR SECRET KEY>"
- :ftx-ws "wss://ftx.com/ws/"
- :ftx-api "https://ftx.com/api"
- :ftx-us-ws "wss://ftx.us/ws/"
- :ftx-us-api "https://ftx.us/api"
-
- :ws-timeout-ms 10000 ;; timeout to wait before attempting to reconnect
+ :ftx-us-api-key ""
+ :ftx-us-secret-key ""
 
  ;; model params
  :est-bar-mins 10.0
@@ -41,8 +35,8 @@
 
  ;; trade params
  :target-amts
- {:BTC 1.4491535895575693E9,
-  :ETH 1.2776200894338192E9}
+ {:BTC 1.5E6,
+  :ETH 1.2E6}
  :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
  :test-market-notional 100.0

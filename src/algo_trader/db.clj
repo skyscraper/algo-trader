@@ -12,10 +12,10 @@
 
 ;; temporary env var hack
 (def db
-  {:dbtype (:app-dbtype env "postgres")
-   :dbname (:app-dbname env "trader_db")
-   :host (:app-dbhost env "trader.cfnln8k63rer.eu-west-2.rds.amazonaws.com")
-   :user (:app-dbuser env "trader_user")
+  {:dbtype   (:app-dbtype env "postgres")
+   :dbname   (:app-dbname env "trader_db")
+   :host     (:app-dbhost env "trader.cfnln8k63rer.eu-west-2.rds.amazonaws.com")
+   :user     (:app-dbuser env "trader_user")
    :password (:app-dbpassword env "sjOHWRzP5524nYWdt4MQ")})
 
 (defn table-name [underlying]
@@ -24,15 +24,15 @@
 (defn create-table [conn underlying]
   (let [t-name (table-name underlying)]
     (jdbc/execute!
-     conn
-     (-> (h/create-table t-name :if-not-exists)
-         (h/with-columns [[:time :timestamptz [:not nil]]
-                          [:id :bigint]
-                          [:price :double :precision]
-                          [:size :double :precision]
-                          [:side [:char 1]]
-                          [:liquidation :boolean]])
-         (sql/format {:pretty true})))))
+      conn
+      (-> (h/create-table t-name :if-not-exists)
+          (h/with-columns [[:time :timestamptz [:not nil]]
+                           [:id :bigint]
+                           [:price :double :precision]
+                           [:size :double :precision]
+                           [:side [:char 1]]
+                           [:liquidation :boolean]])
+          (sql/format {:pretty true})))))
 
 (defn get-ult-ts [market comp-kw]
   (try
@@ -56,10 +56,10 @@
 
 (defn db-insert [conn data underlying]
   (jdbc/execute!
-   conn
-   (-> (h/insert-into (table-name underlying))
-       (h/values data)
-       (sql/format {:pretty true}))))
+    conn
+    (-> (h/insert-into (table-name underlying))
+        (h/values data)
+        (sql/format {:pretty true}))))
 
 (defn fetch-and-store [market lookback-days append?]
   (let [underlying (underlying-kw market)
@@ -77,7 +77,7 @@
                                 [(- end-s delta) end-s])
                               [(- now delta) now]))
         params {:start_time start-ts
-                :limit limit}
+                :limit      limit}
         next-end (atom end-ts)
         last-count (atom limit)
         ds (jdbc/get-datasource db)]
@@ -88,9 +88,9 @@
               ct (count trades)]
           (swap! next-end (fn [x]
                             (reduce
-                             #(min %1 (.getEpochSecond (:time %2)))
-                             x
-                             trades)))
+                              #(min %1 (.getEpochSecond (:time %2)))
+                              x
+                              trades)))
           (swap! last-count (fn [_] ct))
           (when (> ct 0)
             (db-insert conn trades underlying)))))))
@@ -103,23 +103,23 @@
         tn (name tkw)
         t-time (keyword (str tn ".time"))
         selected (jdbc/execute!
-                  ds
-                  (-> (h/select :*)
-                      (h/from tkw)
-                      (h/where :and
-                               [:>= t-time f-date]
-                               [:< t-time t-date])
-                      (h/order-by [t-time :asc])
-                      (sql/format {:pretty true})))]
+                   ds
+                   (-> (h/select :*)
+                       (h/from tkw)
+                       (h/where :and
+                                [:>= t-time f-date]
+                                [:< t-time t-date])
+                       (h/order-by [t-time :asc])
+                       (sql/format {:pretty true})))]
     (map
-     (fn [t]
-       (-> (rename-keys t {(keyword tn "time") :time
-                           (keyword tn "id") :id
-                           (keyword tn "price") :price
-                           (keyword tn "size") :size
-                           (keyword tn "side") :side
-                           (keyword tn "liquidation") :liquidation})
-           (update :side #(if (= % "b") :buy :sell))))
-     selected)))
+      (fn [t]
+        (-> (rename-keys t {(keyword tn "time")        :time
+                            (keyword tn "id")          :id
+                            (keyword tn "price")       :price
+                            (keyword tn "size")        :size
+                            (keyword tn "side")        :side
+                            (keyword tn "liquidation") :liquidation})
+            (update :side #(if (= % "b") :buy :sell))))
+      selected)))
 
 
