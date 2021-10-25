@@ -23,7 +23,7 @@
           (json/read-value rdr json/keyword-keys-object-mapper)]
       (statsd/count :ws-msg 1 tags)
       (cond
-        (some? ch) (process (map huobi/normalize (:data tick)) tags ((keyword ch) info))
+        (some? ch) (process (map #(huobi/normalize % exch) (:data tick)) tags ((keyword ch) info))
         (some? subbed) (log/info subbed "subscription status:" status)
         (some? ping) (s/put! conn (json/write-value-as-string {:pong ping}))
         :else (log/warn "unhandled huobi-inv message: " payload)))))

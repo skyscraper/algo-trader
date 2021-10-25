@@ -6,7 +6,7 @@
 (def included? (set (:included-features config)))
 (def range-max (:scale-cap config))
 
-(def base {:amt 0.0 :v 0.0})
+(def base {:amt 0.0 :v 0.0 :twobv 0.0 :lasts {}})
 
 (def feature-base
   {:ewms        (repeat (:num-windows config) nil)
@@ -20,14 +20,23 @@
    :features-data feature-base
    :target-amt    target-amt})
 
-(defn update-bar [bar {:keys [price size side]}]
-  (-> (update bar :o (fnil identity price))
-      (update :h (fnil max price) price)
-      (update :l (fnil min price) price)
-      (assoc :c price)
-      (update :amt + (* price size))
-      (update :v + size)
-      (assoc :last-side side)))
+(defn update-bar [{:keys [lasts] :as bar} {:keys [price size side source]}]
+  (let [last-price (source lasts)
+        s (if last-price
+            (cond
+              (> price last-price) :buy
+              (< price last-price) :sell
+              :else side)
+            side)]
+    (-> (update bar :o (fnil identity price))
+        (update :h (fnil max price) price)
+        (update :l (fnil min price) price)
+        (assoc :c price)
+        (update :amt + (* price size))
+        (update :v + size)
+        (update :twobv + (* size (if (= :buy s) 2.0 0.0)))
+        (assoc :last-side s) ;; todo: maybe take avg
+        (assoc-in [:lasts source] price))))
 
 (defn rsi [gains losses w]
   (let [ls (/ (apply + (take w losses)) w)]
@@ -107,9 +116,9 @@
             new-variance (ewm-step variance sq-rtn vol-alpha)
             sigma (Math/sqrt new-variance)
             new-bar (assoc updated
-                      :features features
-                      :diff diff
-                      :sigma sigma)]
+                           :features features
+                           :diff diff
+                           :sigma sigma)]
         (assoc
           (update acc :bars conj new-bar)
           :current base

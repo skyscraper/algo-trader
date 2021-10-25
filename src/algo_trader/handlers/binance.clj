@@ -11,7 +11,7 @@
 (def ws-timeout 10000)
 (def info {})
 
-(defn normalize [p q m T]
+(defn normalize [p q m T exch]
   {:price (Double/parseDouble p)
    :size (Double/parseDouble q)
    :side (if m :sell :buy)
@@ -22,7 +22,7 @@
   (let [{:keys [s p q T m] :as payload} (:data (json/read-value raw json/keyword-keys-object-mapper))]
     (statsd/count :ws-msg 1 tags)
     (if s
-      (process-single (normalize p q m T) tags ((keyword s) info))
+      (process-single (normalize p q m T exch) tags ((keyword s) info))
       (log/warn "unhandled binance message:" payload))))
 
 (defn rename [k]

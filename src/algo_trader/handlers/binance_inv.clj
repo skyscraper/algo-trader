@@ -22,7 +22,7 @@
     (if s
       (let [kw-sym (keyword s)
             cts (kw-sym @ct-size)
-            {:keys [price] :as norm} (binance/normalize p q m T)
+            {:keys [price] :as norm} (binance/normalize p q m T exch)
             trade (update norm :size #(/ (* % cts) price))]
         (process-single trade tags (kw-sym info)))
       (log/warn "unhandled binance-inv message:" payload))))

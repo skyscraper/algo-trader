@@ -16,7 +16,7 @@
 (def info {})
 (def base "market.%s.trade.detail")
 
-(defn normalize [{:keys [price quantity direction ts]}]
+(defn normalize [{:keys [price quantity direction ts]} exch]
   {:price (double price)
    :size (double quantity)
    :side (keyword direction)
@@ -29,7 +29,7 @@
           (json/read-value rdr json/keyword-keys-object-mapper)]
       (statsd/count :ws-msg 1 tags)
       (cond
-        (some? ch) (process (map normalize (:data tick)) tags ((keyword ch) info))
+        (some? ch) (process (map #(normalize % exch) (:data tick)) tags ((keyword ch) info))
         (some? subbed) (log/info subbed "subscription status:" status)
         (some? ping) (s/put! conn (json/write-value-as-string {:pong ping}))
         :else (log/warn "unhandled huobi message: " payload)))))

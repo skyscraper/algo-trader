@@ -2,6 +2,7 @@
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config default-weights scale-alpha]]
             [algo-trader.oms :as oms]
+            [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product clip ewm-step]]
             [clojure.core.async :refer [put!]]))
 
@@ -55,8 +56,9 @@
 (defn predict
   "get combined forecast for a market"
   [market {:keys [bars variance]}]
-  (let [{:keys [features]} (first bars)
+  (let [{:keys [features twobv v]} (first bars)
         vol (Math/sqrt variance)]
+    (statsd/gauge :order-imbalance (- (/ twobv v) 1.0) nil)
     (->> features
          (map-indexed
            (fn [idx x]

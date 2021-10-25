@@ -19,7 +19,7 @@
    :size (double (/ size price))
    :side (keyword (lower-case side))
    :time trade_time_ms
-   :source bybit/exch})
+   :source exch})
 
 (defn handle [raw _]
   (let [{:keys [request success ret_msg topic data] :as payload}
