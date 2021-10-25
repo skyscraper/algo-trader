@@ -58,7 +58,7 @@
   [market {:keys [bars variance]}]
   (let [{:keys [features twobv v]} (first bars)
         vol (Math/sqrt variance)]
-    (statsd/gauge :order-imbalance (- (/ twobv v) 1.0) nil)
+    (statsd/gauge :order-imbalance (- (/ twobv v) 1.0) [market])
     (->> features
          (map-indexed
            (fn [idx x]
