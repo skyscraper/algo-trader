@@ -1,6 +1,6 @@
 (ns algo-trader.backtest
   (:require [algo-trader.bars :as bars]
-            [algo-trader.config :refer [config fc-count total-fc-count]]
+            [algo-trader.config :refer [config fc-count]]
             [algo-trader.db :as db]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
@@ -13,9 +13,9 @@
 (def header-base [:raw-fc :scale :scaled-fc])
 (def rest-header [:sigma :combined :fdm-fc :port-val])
 (def header (let [xs (mapcat
-                       (fn [i]
-                         (map #(str (name %) i) header-base))
-                       (range total-fc-count))]
+                      (fn [i]
+                        (map #(str (name %) i) header-base))
+                      (range fc-count))]
               (vec (concat xs (mapv name rest-header)))))
 
 (defn run
@@ -52,8 +52,8 @@
           backtest-bars (reverse (bars/generate-bars target-amt backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (let [all (atom [])
-            ws (vec (repeat total-fc-count 0.0))]
-        (doseq [i (range total-fc-count)
+            ws (vec (repeat fc-count 0.0))]
+        (doseq [i (range fc-count)
                 :let [a (atom [])]]
           (alter-var-root #'model/weights (fn [_] (assoc ws i 1.0)))
           (model/initialize {market target-amt})

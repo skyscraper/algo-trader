@@ -7,15 +7,13 @@
  :est-bar-mins 1.5 ;; derived from only ftx market share...
  :bar-count 17
  :vol-span 36
- :window-start 4.0
- :num-windows 3
 
  ;; scaling
  :scale-span 1000
  :scale-target 10.0
  :scale-cap 20.0
- :starting-scales [0.593 0.721 0.853]
- :weights [1.0 -0.845 0.845]
+ :starting-scales [0.396 0.569 0.661]
+ :weights [0.05 0.9 0.05]
  :fdm 1.17
 
  ;; volatility targeting

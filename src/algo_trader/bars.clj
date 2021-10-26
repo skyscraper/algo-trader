@@ -1,5 +1,5 @@
 (ns algo-trader.bars
-  (:require [algo-trader.config :refer [config vol-alpha window-alphas]]
+  (:require [algo-trader.config :refer [config fc-count vol-alpha window-alphas]]
             [algo-trader.utils :refer [pct-rtn ewm-step]]))
 
 (def range-max (:scale-cap config))
@@ -7,7 +7,7 @@
 (def base {:amt 0.0 :v 0.0 :twobv 0.0})
 
 (def feature-base
-  {:ewms (repeat (:num-windows config) nil)})
+  {:ewms (repeat fc-count nil)})
 
 (defn bar-base [target-amt]
   {:current       base

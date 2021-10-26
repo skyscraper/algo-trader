@@ -4,18 +4,10 @@
 (def config (edn/read-string (slurp "resources/config.edn")))
 (def orders-ep "/orders")
 
-(def jump 2)
-(def fc-count (:num-windows config))
-(def total-fc-count fc-count)
+(def windows [1.0 3.0 5.0])
+(def fc-count (count windows))
 
-;; windows to calculate
-(def windows
-  (->> (:window-start config)
-       (iterate #(* % jump))
-       (take (:num-windows config))
-       vec))
-
-(def default-weights (repeat (* total-fc-count) (double (/ 1 total-fc-count))))
+(def default-weights (repeat fc-count (double (/ 1 fc-count))))
 
 (defn get-alpha [x]
   (/ 2.0 (inc x)))
