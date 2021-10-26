@@ -6,7 +6,7 @@
 (def included? (set (:included-features config)))
 (def range-max (:scale-cap config))
 
-(def base {:amt 0.0 :v 0.0 :twobv 0.0 :lasts {}})
+(def base {:amt 0.0 :v 0.0 :twobv 0.0})
 
 (def feature-base
   {:ewms        (repeat (:num-windows config) nil)
@@ -18,10 +18,11 @@
   {:current       base
    :bars          '()
    :features-data feature-base
-   :target-amt    target-amt})
+   :target-amt    target-amt
+   :last-prices   {}})
 
-(defn update-bar [{:keys [lasts] :as bar} {:keys [price size side source]}]
-  (let [last-price (source lasts)
+(defn update-bar [bar {:keys [price size side source]} last-prices]
+  (let [last-price (source last-prices)
         s (if last-price
             (cond
               (> price last-price) :buy
@@ -35,8 +36,7 @@
         (update :amt + (* price size))
         (update :v + size)
         (update :twobv + (* size (if (= :buy s) 2.0 0.0)))
-        (assoc :last-side s) ;; todo: maybe take avg
-        (assoc-in [:lasts source] price))))
+        (assoc :last-side s)))) ;; todo: maybe take avg
 
 (defn rsi [gains losses w]
   (let [ls (/ (apply + (take w losses)) w)]
@@ -83,9 +83,10 @@
      :trend      trend}))
 
 (defn add-to-bars
-  [{:keys [current bars features-data variance target-amt] :as acc}
-   {:keys [price] :as trade}]
-  (let [{:keys [o amt] :as updated} (update-bar current trade)]
+  [{:keys [current bars features-data variance target-amt last-prices] :as acc}
+   {:keys [source price] :as trade}]
+  (let [{:keys [o amt] :as updated} (update-bar current trade last-prices)
+        new-last-prices (assoc last-prices source price)]
     (if (>= amt target-amt)
       (let [prev-close (:c (first bars) o)
             {:keys [ewms gains losses st-features]} features-data
@@ -126,8 +127,9 @@
                           :gains       new-gains
                           :losses      new-losses
                           :st-features new-st-features}
-          :variance new-variance))
-      (assoc acc :current updated))))
+          :variance new-variance
+          :last-prices new-last-prices))
+      (assoc acc :current updated :last-prices new-last-prices))))
 
 (defn generate-bars [target-amt trades]
   (->> (reduce
