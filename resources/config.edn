@@ -4,7 +4,7 @@
  :ftx-us-secret-key ""
 
  ;; model params
- :est-bar-mins 0.166
+ :est-bar-mins 1.5 ;; derived from only ftx market share...
  :bar-count 17
  :vol-span 36
  :window-start 4.0
@@ -14,12 +14,12 @@
  :scale-span 1000
  :scale-target 10.0
  :scale-cap 20.0
- :starting-scales [55.0 39.0 28.0]
- :weights [0.4 0.3 0.3]
+ :starting-scales [0.593 0.721 0.853]
+ :weights [1.0 -0.845 0.845]
  :fdm 1.17
 
  ;; volatility targeting
- :volatility-target 0.375
+ :volatility-target 2.0
 
  ;; slippage
  :same-slippage-bps 1.0

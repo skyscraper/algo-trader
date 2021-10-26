@@ -96,7 +96,7 @@
         combined (dot-product weights (map last xs))
         fdm-fc (clip fc-cap (* combined fdm))
         port-val (oms/update-paper-port! price fdm-fc side vol (market oms/positions))]
-    (vec (conj (vec (apply concat xs)) combined fdm-fc port-val))))
+    (vec (conj (vec (apply concat xs)) vol combined fdm-fc port-val))))
 
 (defn evaluate-model
   [market bs record-fn verbose?]

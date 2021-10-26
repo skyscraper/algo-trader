@@ -34,9 +34,9 @@
                            [:liquidation :boolean]])
           (sql/format {:pretty true})))))
 
-(defn get-ult-ts [market comp-kw]
+(defn get-ult-ts [underlying comp-kw]
   (try
-    (let [tkw (table-name (underlying-kw market))
+    (let [tkw (table-name underlying)
           tn (name tkw)
           t-time (keyword (str tn ".time"))
           ds (jdbc/get-datasource db)
@@ -48,11 +48,11 @@
       (.getTime ((keyword tn "time") (first (jdbc/execute! ds stmt)))))
     (catch Exception _ nil)))
 
-(defn get-first-ts [market]
-  (get-ult-ts market :asc))
+(defn get-first-ts [underlying]
+  (get-ult-ts underlying :asc))
 
-(defn get-last-ts [market]
-  (get-ult-ts market :desc))
+(defn get-last-ts [underlying]
+  (get-ult-ts underlying :desc))
 
 (defn db-insert [conn data underlying]
   (jdbc/execute!
@@ -95,11 +95,11 @@
           (when (> ct 0)
             (db-insert conn trades underlying)))))))
 
-(defn get-trades [market from-ts to-ts]
+(defn get-trades [underlying from-ts to-ts]
   (let [f-date (instant from-ts)
         t-date (instant to-ts)
         ds (jdbc/get-datasource db)
-        tkw (table-name (underlying-kw market))
+        tkw (table-name underlying)
         tn (name tkw)
         t-time (keyword (str tn ".time"))
         selected (jdbc/execute!
@@ -119,7 +119,8 @@
                             (keyword tn "size")        :size
                             (keyword tn "side")        :side
                             (keyword tn "liquidation") :liquidation})
-            (update :side #(if (= % "b") :buy :sell))))
+            (update :side #(if (= % "b") :buy :sell))
+            (assoc :source :ftx)))
       selected)))
 
 

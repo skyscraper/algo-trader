@@ -11,7 +11,7 @@
             [taoensso.timbre :as log]))
 
 (def header-base [:raw-fc :scale :scaled-fc])
-(def rest-header [:combined :fdm-fc :port-val])
+(def rest-header [:sigma :combined :fdm-fc :port-val])
 (def header (let [xs (mapcat
                        (fn [i]
                          (map #(str (name %) i) header-base))
