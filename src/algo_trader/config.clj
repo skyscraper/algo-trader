@@ -3,12 +3,10 @@
 
 (def config (edn/read-string (slurp "resources/config.edn")))
 (def orders-ep "/orders")
-(def futures-ep "/futures")
 
 (def jump 2)
-(def fc-window-delta jump)
-(def fc-count (- (:num-windows config) fc-window-delta))
-(def total-fc-count (* (count (:included-features config)) fc-count))
+(def fc-count (:num-windows config))
+(def total-fc-count fc-count)
 
 ;; windows to calculate
 (def windows
@@ -16,9 +14,6 @@
        (iterate #(* % jump))
        (take (:num-windows config))
        vec))
-
-(def st-windows
-  [1.0 2.0 4.0])
 
 (def default-weights (repeat (* total-fc-count) (double (/ 1 total-fc-count))))
 

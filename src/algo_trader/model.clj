@@ -56,9 +56,9 @@
 (defn predict
   "get combined forecast for a market"
   [market {:keys [bars variance]}]
-  (let [{:keys [features twobv v]} (first bars)
+  (let [{:keys [features oi]} (first bars)
         vol (Math/sqrt variance)]
-    (statsd/gauge :order-imbalance (- (/ twobv v) 1.0) [(str "coin" market)])
+    (statsd/gauge :order-imbalance oi [(str "coin" market)])
     (->> features
          (map-indexed
            (fn [idx x]

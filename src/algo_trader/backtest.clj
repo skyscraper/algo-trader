@@ -66,7 +66,7 @@
           (swap! all conj @a))
         (let [transpose (apply mapv vector @all)]
           (with-open [writer (io/writer (format "resources/%s_port_prices.csv" (name market)))]
-            (write-csv writer [(for [f (:included-features config)
+            (write-csv writer [(for [f [:ewm-oi]
                                      i (range fc-count)]
                                  (str (name f) "-" i))])
             (write-csv writer transpose))))
