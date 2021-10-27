@@ -95,7 +95,7 @@
   (let [xs (map-indexed (fn [idx x] (predict-single market vol idx x)) features)
         combined (dot-product weights (map last xs))
         fdm-fc (clip fc-cap (* combined fdm))
-        port-val (oms/update-paper-port! price fdm-fc side vol (market oms/positions))]
+        port-val (oms/update-paper-port! market price fdm-fc side vol (market oms/positions))]
     (vec (conj (vec (apply concat xs)) vol combined fdm-fc port-val))))
 
 (defn evaluate-model
