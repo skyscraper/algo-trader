@@ -5,7 +5,7 @@
 
 ;;; math ;;;
 (defn pct-rtn [p1 p2]
-  (dec (/ p2 p1)))
+  (- (/ p2 p1) 1.0))
 
 (defn dot-product [xs ys]
   (apply + (map * xs ys)))

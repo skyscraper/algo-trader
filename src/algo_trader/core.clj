@@ -23,21 +23,12 @@
             [clojure.core.async :refer [<! >! go go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
-            [jsonista.core :as json]
             [taoensso.timbre :as log])
   (:import (java.util.concurrent CountDownLatch)))
 
 (def markets (atom nil))
 (def trade-channels {})
 (def signal (CountDownLatch. 1))
-
-(defn handle-orders-fills
-  [msg]
-  (go
-    (let [{:keys [channel data]} (-> (json/read-value msg json/keyword-keys-object-mapper)
-                                     (update :channel keyword)
-                                     (update-in [:data :market] market-from-spot))]
-      (>! ((:market data) oms/oms-channels) (assoc data :msg-type channel)))))
 
 (defn start-md-handlers
   "Starts a go-loop and applies a fn to every event received on a given channel.
@@ -84,9 +75,9 @@
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
   (oms/initialize-equity hardcoded-eq)
-  (let [starting-cash (oms/determine-notionals @markets)]
-    (log/info (format "starting equity per market: %,.2f" starting-cash))
-    (oms/initialize-positions @markets starting-cash))
+  (let [starting-capital (oms/determine-starting-capital-per-market @markets)]
+    (log/info (format "starting capital per market: %,.2f" starting-capital))
+    (oms/initialize-positions @markets starting-capital))
   (log/info "Starting OMS handlers...")
   (if paper?
     (paper-setup)

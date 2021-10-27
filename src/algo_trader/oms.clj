@@ -5,33 +5,34 @@
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
             [clojure.core.async :refer [<! go-loop]]
             [java-time :refer [instant]]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log])
+  (:import (java.util UUID)))
 
 (def non-inflight-statuses #{:closed :local-cancel})
 (def oms-channels {})
 (def positions {})
 (def equity (atom 0.0))
-(def starting-cash (atom 0.0))                              ;; testing
+(def starting-capital-per-market (atom 0.0))                              ;; testing
 
 (defn initialize-equity [eq]
   (reset! equity eq))
 
-(defn initialize-positions [markets starting-cash]
+(defn initialize-positions [markets starting-capital]
   (alter-var-root
     #'positions
     #(reduce
        (fn [acc x]
-         (assoc acc x (atom {:cash            starting-cash
+         (assoc acc x (atom {:cash            starting-capital
                              :shares          0.0
-                             :port-val        starting-cash
+                             :port-val        starting-capital
                              :order-id        nil
                              :order-inflight? false
                              :order-submit-ts nil})))
        %
        markets)))
 
-(defn determine-notionals [markets]
-  (reset! starting-cash (/ @equity (count markets))))
+(defn determine-starting-capital-per-market [markets]
+  (reset! starting-capital-per-market (/ @equity (count markets))))
 
 (defn get-target
   "block size is the min size increment for the underlying (ftx.us)
@@ -41,7 +42,7 @@
   [market forecast port-mtm price vol]
   (let [block-size (get-in config [:block-sizes market])
         vol-scale (vol-scalar port-mtm price block-size vol)]
-    (* block-size (Math/round (/ (* forecast vol-scale) (:scale-target config))))))
+    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scale-target config))))))
 
 (defn handle-target
   [{:keys [market price forecast vol]} p]
@@ -49,17 +50,17 @@
         port-mtm (+ (* shares price) cash)
         target (get-target market forecast port-mtm price vol)
         delta-shares (- target shares)
-        thresh (Math/abs (* (:position-inertia-percent config) shares))]
-    (when (>= (Math/abs delta-shares) thresh)
-      (let [ord-id (str (java.util.UUID/randomUUID))
-            qty (Math/abs delta-shares)
+        thresh (Math/abs ^double (* (:position-inertia-percent config) shares))]
+    (when (>= (Math/abs ^double delta-shares) thresh)
+      (let [ord-id (str (UUID/randomUUID))
+            qty (Math/abs ^double delta-shares)
             side (if (neg? delta-shares) :sell :buy)]
         (swap! p assoc
                :order-id ord-id
                :order-inflight? true
                :order-submit-ts (System/currentTimeMillis))
         (api/market-order-async side qty market ord-id (market oms-channels))
-        (log/info (format "%s submitting TARGET %s %s %d" ord-id (name side) market qty))
+        (log/info (format "%s submitting TARGET %s %s %d at %d" ord-id (name side) market qty price))
         (statsd/count :order-generated 1 (list market))))))
 
 (defn handle-response
@@ -77,7 +78,7 @@
               :order-submit-time
               (- order-create-time order-submit-ts)
               (list market)))))
-      (log/warn (format "received mismatched RESPONSE for order %s but postion has %s"
+      (log/warn (format "received mismatched RESPONSE for order %s but position has %s"
                         clientId order-id)))))
 
 (defn handle-fill
@@ -97,7 +98,7 @@
                   port-val (+ pos-val new-cash)]
               (assoc x :cash new-cash :shares new-shares :port-val port-val))))]
     (log/info (format "received FILL %s %d @ $%d" (name market) size price))
-    (statsd/gauge :port-val (pct-rtn @starting-cash port-val) (list market))
+    (statsd/gauge :port-val (pct-rtn @starting-capital-per-market port-val) (list market))
     (statsd/distribution
       :match-time
       (- match-time order-submit-ts)
@@ -116,7 +117,7 @@
       (if (:closed (keyword status-kw))
         (swap! p assoc :status status-kw :order-inflight? false)
         (swap! p assoc :status status-kw))
-      (log/warn (format "received mismatched UPDATE for order %s but postion has %s"
+      (log/warn (format "received mismatched UPDATE for order %s but position has %s"
                         clientId order-id)))))
 
 (defn handle-oms-data
@@ -143,7 +144,6 @@
 ;;; paper trading logic ;;;
 
 (defn slipped-price [price side delta]
-  ;; if we are going same way, only 1bps slippage, otherwise 5bps to cross spread
   (let [i (if (pos? delta)
             (if (= :buy side) 0 1)
             (if (= :buy side) 2 3))]
@@ -157,8 +157,8 @@
         (let [port-mtm (+ (* shares price) cash)
               target (get-target market forecast port-mtm price vol)
               delta-shares (- target shares)
-              thresh (Math/abs (* (:position-inertia-percent config) shares))]
-          (if (>= (Math/abs delta-shares) thresh)
+              thresh (Math/abs ^double (* (:position-inertia-percent config) shares))]
+          (if (>= (Math/abs ^double delta-shares) thresh)
             (let [slip-price (slipped-price price side delta-shares)
                   my-price (if (pos? delta-shares)
                              (* slip-price (first fee-mults))
@@ -172,7 +172,7 @@
 
 (defn handle-paper-target [{:keys [market price forecast side vol]} p]
   (let [port-val (update-paper-port! market price forecast side vol p)]
-    (statsd/gauge :port-val (pct-rtn @starting-cash port-val) (list market))))
+    (statsd/gauge :port-val (pct-rtn @starting-capital-per-market port-val) (list market))))
 
 (defn handle-paper-data [sym {:keys [msg-type] :as msg}]
   (let [p (sym positions)]

@@ -5,35 +5,34 @@
 
  ;; model params
  :est-bar-mins 1.5 ;; derived from only ftx market share...
- :bar-count 17
  :vol-span 36
+ :windows [1.0 3.0 5.0]
 
  ;; scaling
  :scale-span 1000
- :scale-target 10.0
+ :scale-target 5.0
  :scale-cap 20.0
- :starting-scales [0.396 0.569 0.661]
+ :starting-scales [0.139 0.296 0.401]
  :weights [0.05 0.9 0.05]
  :fdm 1.17
 
  ;; volatility targeting
- :volatility-target 2.0
+ :volatility-target 0.75
  :block-sizes ;; aka sizeIncrement
  {:ETH 0.001
   :BTC 0.0001} ;; might want to fetch programmatically in future...
 
  ;; slippage
- :same-slippage-bps 1.0
- :opp-slippage-bps 5.0
- :taker-fee-bps 7.0
+ :same-slippage-bps 0.0
+ :opp-slippage-bps 0.2
+ :taker-fee-bps 0.0 ;; TEMP
 
  ;; trade params
  :target-amts
  {:BTC 1.5E7,
   :ETH 1.2E7}
- :num-markets 20 ;; if above is populated, this will be ignored
  :position-inertia-percent 0.1 ;; minimum position change
- :test-market-notional 100.0
+ :test-trading-capital 10000.0
 
  ;; backtesting
  :total-days 7

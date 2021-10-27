@@ -25,8 +25,8 @@
         m-list [market]]
     (log/info (format "starting backtest for %s" (name market)))
     (model/initialize {market target-amt})
-    (oms/initialize-equity (:test-market-notional config))
-    (let [starting-cash (oms/determine-notionals [m-list])]
+    (oms/initialize-equity (:test-trading-capital config))
+    (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
       (log/info (format "starting equity per market: %,.2f" starting-cash))
       (oms/initialize-positions m-list starting-cash))
     (log/info "fetching trades...")
@@ -57,8 +57,8 @@
                 :let [a (atom [])]]
           (alter-var-root #'model/weights (fn [_] (assoc ws i 1.0)))
           (model/initialize {market target-amt})
-          (oms/initialize-equity (:test-market-notional config))
-          (let [starting-cash (oms/determine-notionals [m-list])]
+          (oms/initialize-equity (:test-trading-capital config))
+          (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
             (log/info (format "starting equity per market: %,.2f" starting-cash))
             (oms/initialize-positions m-list starting-cash))
           (let [record-fn (fn [[x]] (swap! a conj x))]

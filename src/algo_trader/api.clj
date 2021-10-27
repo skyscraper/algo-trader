@@ -28,7 +28,7 @@
   "Calculate HMAC signature for given data."
   [^String data]
   (let [mac (doto (Mac/getInstance algo) (.init signing-key))]
-    (Hex/encodeHexString (.doFinal mac (.getBytes data fmt)))))
+    (Hex/encodeHexString (.doFinal mac (.getBytes data ^String fmt)))))
 
 (defn ws-sig [ts]
   (format ws-str ts))

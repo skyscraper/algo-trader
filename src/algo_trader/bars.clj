@@ -1,13 +1,10 @@
 (ns algo-trader.bars
-  (:require [algo-trader.config :refer [config fc-count vol-alpha window-alphas]]
+  (:require [algo-trader.config :refer [bar-count fc-count vol-alpha window-alphas]]
             [algo-trader.utils :refer [pct-rtn ewm-step]]))
-
-(def range-max (:scale-cap config))
 
 (def base {:amt 0.0 :v 0.0 :twobv 0.0})
 
-(def feature-base
-  {:ewms (repeat fc-count nil)})
+(def feature-base {:ewms (vec (repeat fc-count nil))})
 
 (defn bar-base [target-amt]
   {:current       base
@@ -56,17 +53,17 @@
                            :features new-ewms
                            :sigma sigma)]
         (assoc
-          (update acc :bars conj new-bar)
-          :current base
-          :features-data {:ewms new-ewms}
-          :variance new-variance
-          :last-prices new-last-prices))
+         (update acc :bars conj new-bar)
+         :current base
+         :features-data {:ewms new-ewms}
+         :variance new-variance
+         :last-prices new-last-prices))
       (assoc acc :current updated :last-prices new-last-prices))))
 
 (defn generate-bars [target-amt trades]
   (->> (reduce
-         add-to-bars
-         (bar-base target-amt)
-         trades)
+        add-to-bars
+        (bar-base target-amt)
+        trades)
        :bars
-       (drop-last (:bar-count config))))
+       (drop-last bar-count)))

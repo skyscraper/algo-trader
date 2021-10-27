@@ -1,12 +1,11 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
-            [algo-trader.config :refer [config default-weights scale-alpha]]
+            [algo-trader.config :refer [config bar-count default-weights scale-alpha]]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product clip ewm-step]]
             [clojure.core.async :refer [put!]]))
 
-(def bar-count (:bar-count config))
 (def scale-target (:scale-target config))
 (def scales {})
 (def weights (or (:weights config) default-weights))
@@ -41,7 +40,7 @@
     (swap!
       (get-in scales [market idx])
       (fn [{:keys [mean]}]
-        (let [new-mean (ewm-step mean (Math/abs raw-forecast) scale-alpha)
+        (let [new-mean (ewm-step mean (Math/abs ^double raw-forecast) scale-alpha)
               new-scale (/ scale-target new-mean)]
           {:mean new-mean :scale new-scale})))))
 
