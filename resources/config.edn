@@ -18,6 +18,9 @@
 
  ;; volatility targeting
  :volatility-target 2.0
+ :block-sizes ;; aka sizeIncrement
+ {:ETH 0.001
+  :BTC 0.0001} ;; might want to fetch programmatically in future...
 
  ;; slippage
  :same-slippage-bps 1.0

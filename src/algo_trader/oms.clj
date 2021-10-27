@@ -33,16 +33,21 @@
 (defn determine-notionals [markets]
   (reset! starting-cash (/ @equity (count markets))))
 
-(defn get-target [forecast port-mtm price vol]
-  (let [block-size 1.0                                      ;; purposefully hardcoded; see Carver 154
+(defn get-target
+  "block size is the min size increment for the underlying (ftx.us)
+   vol-scale is the number of blocks to get to the per-bar cash vol target
+   thus, we need to FIRST round to get to integer number of blocks, and then
+   adjust to the actual decimal"
+  [market forecast port-mtm price vol]
+  (let [block-size (get-in config [:block-sizes market])
         vol-scale (vol-scalar port-mtm price block-size vol)]
-    (/ (* forecast vol-scale) (:scale-target config))))
+    (* block-size (Math/round (/ (* forecast vol-scale) (:scale-target config))))))
 
 (defn handle-target
   [{:keys [market price forecast vol]} p]
   (let [{:keys [cash shares]} @p
         port-mtm (+ (* shares price) cash)
-        target (get-target forecast port-mtm price vol)
+        target (get-target market forecast port-mtm price vol)
         delta-shares (- target shares)
         thresh (Math/abs (* (:position-inertia-percent config) shares))]
     (when (>= (Math/abs delta-shares) thresh)
@@ -144,13 +149,13 @@
             (if (= :buy side) 2 3))]
     (* price (nth price-slippage i))))
 
-(defn update-paper-port! [price forecast side vol p]
+(defn update-paper-port! [market price forecast side vol p]
   (:port-val
     (swap!
       p
       (fn [{:keys [cash shares]}]
         (let [port-mtm (+ (* shares price) cash)
-              target (get-target forecast port-mtm price vol)
+              target (get-target market forecast port-mtm price vol)
               delta-shares (- target shares)
               thresh (Math/abs (* (:position-inertia-percent config) shares))]
           (if (>= (Math/abs delta-shares) thresh)
@@ -166,7 +171,7 @@
             {:cash cash :shares shares :port-val port-mtm}))))))
 
 (defn handle-paper-target [{:keys [market price forecast side vol]} p]
-  (let [port-val (update-paper-port! price forecast side vol p)]
+  (let [port-val (update-paper-port! market price forecast side vol p)]
     (statsd/gauge :port-val (pct-rtn @starting-cash port-val) (list market))))
 
 (defn handle-paper-data [sym {:keys [msg-type] :as msg}]
