@@ -166,7 +166,12 @@
                   delta-cash (* delta-shares my-price)
                   new-cash (- cash delta-cash)
                   pos-val (* target slip-price)
-                  port-val (+ pos-val new-cash)]
+                  port-val (+ pos-val new-cash)
+                  tags [(str "coin" market)]]
+              (statsd/count :paper-trade 1 tags)
+              (statsd/count :paper-trade-cents
+                            (Math/abs (* delta-shares slip-price 100.0))
+                            tags)
               {:cash new-cash :shares target :port-val port-val})
             {:cash cash :shares shares :port-val port-mtm}))))))
 
