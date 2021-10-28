@@ -1,5 +1,5 @@
 (ns algo-trader.utils
-  (:require [algo-trader.config :refer [config vol-scale]]
+  (:require [algo-trader.config :refer [config vol-scale-annual]]
             [clojure.core.async :refer [chan]]
             [clojure.string :refer [upper-case]]))
 
@@ -26,16 +26,16 @@
   (* (:volatility-target config) trading-capital))
 
 (defn bar-vol-cash-target [trading-capital]
-  (/ (annual-vol-cash-target trading-capital) vol-scale))
+  (/ (annual-vol-cash-target trading-capital) vol-scale-annual))
 
 (defn block-value [price block-size]
   (* 0.01 price block-size))                                ;; 1% price move impact
 
-(defn instrument-vol [price block-size vol]
-  (* (block-value price block-size) vol 100.0))             ;; 100 because we need vol-pct
+(defn instrument-vol [price block-size sigma]
+  (* (block-value price block-size) sigma 100.0))           ;; 100 because we need vol-pct
 
-(defn vol-scalar [trading-capital price block-size vol]
-  (/ (bar-vol-cash-target trading-capital) (instrument-vol price block-size vol)))
+(defn vol-scalar [trading-capital price block-size sigma]
+  (/ (bar-vol-cash-target trading-capital) (instrument-vol price block-size sigma)))
 
 ;;; keywords/naming ;;;
 (defn uc-kw

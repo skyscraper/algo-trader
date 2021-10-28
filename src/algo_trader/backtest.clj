@@ -1,9 +1,10 @@
-(ns algo-trader.backtest
+-(ns algo-trader.backtest
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config fc-count]]
             [algo-trader.db :as db]
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
+            [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [get-target-amts]]
             [clojure.data.csv :refer [write-csv]]
             [clojure.java.io :as io]
@@ -23,6 +24,7 @@
   [market verbose?]
   (let [target-amt (market (get-target-amts))
         m-list [market]]
+    (statsd/reset-statsd!)
     (log/info (format "starting backtest for %s" (name market)))
     (model/initialize {market target-amt})
     (oms/initialize-equity (:test-trading-capital config))
@@ -32,7 +34,7 @@
     (log/info "fetching trades...")
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
-          backtest-trades (db/get-trades market begin end)
+          backtest-trades (db/get-trades-memo market begin end)
           backtest-bars (reverse (bars/generate-bars target-amt backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (with-open [writer (io/writer (format "resources/%s_backtest.csv" (name market)))]
@@ -44,6 +46,7 @@
 (defn portfolio-opt-inputs [market]
   (let [m-list [market]
         target-amt (market (get-target-amts))]
+    (statsd/reset-statsd!)
     (log/info (format "starting backtest for %s" (name market)))
     (log/info "fetching trades...")
     (let [end (db/get-last-ts market)

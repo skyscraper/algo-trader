@@ -18,9 +18,8 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw
-                                       market-from-spot]]
-            [clojure.core.async :refer [<! >! go go-loop]]
+            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw]]
+            [clojure.core.async :refer [<! go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
             [taoensso.timbre :as log])

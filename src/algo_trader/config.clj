@@ -13,7 +13,8 @@
   (/ 2.0 (+ 1.0 x)))
 
 (def vol-alpha (get-alpha (:vol-span config)))
-(def vol-scale (Math/sqrt (* 365.0 24.0 (/ 60.0 (:est-bar-mins config)))))
+(def vol-scale-annual (Math/sqrt (* 365.0 24.0 (/ 60.0 (:est-bar-mins config)))))
+(def vol-scale-daily (Math/sqrt (* 24.0 (/ 60.0 (:est-bar-mins config)))))
 
 ;; ewm decay for windows
 (def window-alphas

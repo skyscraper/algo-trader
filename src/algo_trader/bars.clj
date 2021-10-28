@@ -1,5 +1,5 @@
 (ns algo-trader.bars
-  (:require [algo-trader.config :refer [bar-count fc-count vol-alpha window-alphas]]
+  (:require [algo-trader.config :refer [bar-count fc-count vol-scale-daily vol-alpha window-alphas]]
             [algo-trader.utils :refer [pct-rtn ewm-step]]))
 
 (def base {:amt 0.0 :v 0.0 :twobv 0.0})
@@ -44,6 +44,7 @@
             sq-rtn (Math/pow rtn 2.0)
             new-variance (ewm-step variance sq-rtn vol-alpha)
             sigma (Math/sqrt new-variance)
+            sigma-day (* sigma vol-scale-daily)
             new-bar (assoc updated
                            :oi oi
                            :last-side (cond
@@ -51,7 +52,8 @@
                                         (neg? oi) :sell
                                         :else s)
                            :features new-ewms
-                           :sigma sigma)]
+                           :sigma sigma
+                           :sigma-day sigma-day)]
         (assoc
          (update acc :bars conj new-bar)
          :current base

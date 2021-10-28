@@ -123,4 +123,4 @@
             (assoc :source :ftx)))
       selected)))
 
-
+(def get-trades-memo (memoize get-trades))

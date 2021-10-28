@@ -39,16 +39,16 @@
    vol-scale is the number of blocks to get to the per-bar cash vol target
    thus, we need to FIRST round to get to integer number of blocks, and then
    adjust to the actual decimal"
-  [market forecast port-mtm price vol]
+  [market forecast port-mtm price sigma]
   (let [block-size (get-in config [:block-sizes market])
-        vol-scale (vol-scalar port-mtm price block-size vol)]
-    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scale-target config))))))
+        vol-scale (vol-scalar port-mtm price block-size sigma)]
+    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scaling-target config))))))
 
 (defn handle-target
-  [{:keys [market price forecast vol]} p]
+  [{:keys [market price forecast sigma]} p]
   (let [{:keys [cash shares]} @p
         port-mtm (+ (* shares price) cash)
-        target (get-target market forecast port-mtm price vol)
+        target (get-target market forecast port-mtm price sigma)
         delta-shares (- target shares)
         thresh (Math/abs ^double (* (:position-inertia-percent config) shares))]
     (when (>= (Math/abs ^double delta-shares) thresh)
@@ -149,13 +149,13 @@
             (if (= :buy side) 2 3))]
     (* price (nth price-slippage i))))
 
-(defn update-paper-port! [market price forecast side vol p]
+(defn update-paper-port! [market price forecast side sigma p]
   (:port-val
     (swap!
       p
       (fn [{:keys [cash shares]}]
         (let [port-mtm (+ (* shares price) cash)
-              target (get-target market forecast port-mtm price vol)
+              target (get-target market forecast port-mtm price sigma)
               delta-shares (- target shares)
               thresh (Math/abs ^double (* (:position-inertia-percent config) shares))]
           (if (>= (Math/abs ^double delta-shares) thresh)
@@ -168,6 +168,7 @@
                   pos-val (* target slip-price)
                   port-val (+ pos-val new-cash)
                   tags [(str "coin" market)]]
+              (log/debug (format "trade value: %,.2f" delta-cash))
               (statsd/count :paper-trade 1 tags)
               (statsd/count :paper-trade-cents
                             (Math/abs (* delta-shares slip-price 100.0))
@@ -175,8 +176,8 @@
               {:cash new-cash :shares target :port-val port-val})
             {:cash cash :shares shares :port-val port-mtm}))))))
 
-(defn handle-paper-target [{:keys [market price forecast side vol]} p]
-  (let [port-val (update-paper-port! market price forecast side vol p)]
+(defn handle-paper-target [{:keys [market price forecast side sigma]} p]
+  (let [port-val (update-paper-port! market price forecast side sigma p)]
     (statsd/gauge :port-val (pct-rtn @starting-capital-per-market port-val) (list market))))
 
 (defn handle-paper-data [sym {:keys [msg-type] :as msg}]

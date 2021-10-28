@@ -46,23 +46,24 @@
 
 (defn predict-single
   "get prediction for a single window of a market"
-  [market vol idx x]
-  (let [raw-fc (/ x vol)                                    ;; volatility standardization
-        scale (update-and-get-forecast-scale! market idx raw-fc)
+  [market sigma idx x]
+  (let [raw-fc (/ x sigma) ;; volatility standardization
+        scale (if (:dynamic-scale? config)
+                (update-and-get-forecast-scale! market idx raw-fc)
+                (get-in config [:starting-scales idx]))
         scaled-fc (clip fc-cap (* raw-fc scale))]
     [raw-fc scale scaled-fc]))
 
 (defn predict
   "get combined forecast for a market"
-  [market {:keys [bars variance]}]
-  (let [{:keys [features oi]} (first bars)
-        vol (Math/sqrt variance)]
+  [market {:keys [bars]}]
+  (let [{:keys [features oi sigma-day]} (first bars)]
     (statsd/gauge :order-imbalance oi [(str "coin" market)])
     (->> features
          (map-indexed
            (fn [idx x]
-             (last                                          ;; last of each tuple, see above
-               (predict-single market vol idx x))))
+             (last ;; last of each tuple, see above
+               (predict-single market sigma-day idx x))))
          (dot-product weights)
          (* fdm)
          (clip fc-cap))))
@@ -78,7 +79,7 @@
         no-result))
     no-result))
 
-(defn handle-trade [market {:keys [price time] :as trade}]
+(defn handle-trade [market {:keys [price side] :as trade}]
   (let [[forecast real?] (update-and-predict! market trade)]
     (when real?
       (put! (market oms/oms-channels)
@@ -86,20 +87,19 @@
              :market   market
              :price    price
              :forecast forecast
-             :side     (:side trade)
-             :vol      (Math/sqrt (:variance @(market model-data)))
-             :ts       time}))))
+             :side     side
+             :sigma    (-> model-data market deref :bars first :sigma-day)}))))
 
-(defn fc-scale-val [market features vol price side]
-  (let [xs (map-indexed (fn [idx x] (predict-single market vol idx x)) features)
+(defn fc-scale-val [market features sigma price side]
+  (let [xs (map-indexed (fn [idx x] (predict-single market sigma idx x)) features)
         combined (dot-product weights (map last xs))
         fdm-fc (clip fc-cap (* combined fdm))
-        port-val (oms/update-paper-port! market price fdm-fc side vol (market oms/positions))]
-    (vec (conj (vec (apply concat xs)) vol combined fdm-fc port-val))))
+        port-val (oms/update-paper-port! market price fdm-fc side sigma (market oms/positions))]
+    (vec (conj (vec (apply concat xs)) sigma combined fdm-fc port-val))))
 
 (defn evaluate-model
   [market bs record-fn verbose?]
-  (doseq [{:keys [features sigma c last-side]} bs
-          :let [xs (fc-scale-val market features sigma c last-side)
+  (doseq [{:keys [features sigma-day c last-side]} bs
+          :let [xs (fc-scale-val market features sigma-day c last-side)
                 row (if verbose? xs [(last xs)])]]
     (record-fn row)))
