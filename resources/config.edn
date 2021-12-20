@@ -31,8 +31,8 @@
 
  ;; trade params
  :target-sizes
- {:BTC 300
-  :ETH 3000}
+ {:BTC 500
+  :ETH 5000}
  :position-inertia-percent 0.1 ;; minimum position change
  :test-trading-capital 10000.0
 

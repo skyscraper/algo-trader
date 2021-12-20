@@ -23,7 +23,7 @@
 (defn initialize [target-sizes]
   (let [m-data (reduce-kv
                  (fn [acc market target-size]
-                   (assoc acc market (atom bars/bar-base target-size)))
+                   (assoc acc market (atom (bars/bar-base target-size))))
                  {}
                  target-sizes)
         s-data (reduce-kv
