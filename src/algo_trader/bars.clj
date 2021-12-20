@@ -6,11 +6,11 @@
 
 (def feature-base {:ewms (vec (repeat fc-count nil))})
 
-(defn bar-base [target-amt]
+(defn bar-base [target-size]
   {:current       base
    :bars          '()
    :features-data feature-base
-   :target-amt    target-amt
+   :target-size   target-size
    :last-prices   {}})
 
 (defn update-bar [bar {:keys [price size]} side]
@@ -23,7 +23,7 @@
       (update :twobv + (* size (if (= :buy side) 2.0 0.0)))))
 
 (defn add-to-bars
-  [{:keys [current bars features-data variance target-amt last-prices] :as acc}
+  [{:keys [current bars features-data variance target-size last-prices] :as acc}
    {:keys [source price side] :as trade}]
   (let [last-price (source last-prices)
         s (if last-price
@@ -32,9 +32,9 @@
               (< price last-price) :sell
               :else side)
             side)
-        {:keys [o amt twobv v] :as updated} (update-bar current trade s)
+        {:keys [o twobv v] :as updated} (update-bar current trade s)
         new-last-prices (assoc last-prices source price)]
-    (if (>= amt target-amt)
+    (if (>= v target-size)
       (let [prev-close (:c (first bars) o)
             {:keys [ewms]} features-data
             ;; ewm-oi
@@ -62,10 +62,10 @@
          :last-prices new-last-prices))
       (assoc acc :current updated :last-prices new-last-prices))))
 
-(defn generate-bars [target-amt trades]
+(defn generate-bars [target-size trades]
   (->> (reduce
         add-to-bars
-        (bar-base target-amt)
+        (bar-base target-size)
         trades)
        :bars
        (drop-last bar-count)))

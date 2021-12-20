@@ -25,7 +25,7 @@
   (get-alpha (:scale-span config)))
 
 (def hardcoded-eq                                           ;; for testing
-  (* (count (:target-amts config)) (:test-trading-capital config)))
+  (* (count (:target-sizes config)) (:test-trading-capital config)))
 
 ;; convenience pre-calc
 (def price-slippage

@@ -20,16 +20,16 @@
 (defn clean-scales []
   (mapv default-scale (:starting-scales config)))
 
-(defn initialize [target-amts]
+(defn initialize [target-sizes]
   (let [m-data (reduce-kv
-                 (fn [acc market target-amt]
-                   (assoc acc market (atom (bars/bar-base target-amt))))
+                 (fn [acc market target-size]
+                   (assoc acc market (atom bars/bar-base target-size)))
                  {}
-                 target-amts)
+                 target-sizes)
         s-data (reduce-kv
                  (fn [acc market _] (assoc acc market (clean-scales)))
                  {}
-                 target-amts)]
+                 target-sizes)]
     (alter-var-root #'model-data merge m-data)
     (alter-var-root #'scales merge s-data)))
 

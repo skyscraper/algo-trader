@@ -1,11 +1,16 @@
 (ns algo-trader.statsd
-  (:import [com.timgroup.statsd NonBlockingStatsDClient])
+  (:import [com.timgroup.statsd NonBlockingStatsDClientBuilder])
   (:refer-clojure :exclude [count]))
 
 (def statsd (atom nil))
 
 (defn reset-statsd! []
-  (reset! statsd (new NonBlockingStatsDClient "statsd" "localhost" 8125)))
+  (reset! statsd
+          (-> (NonBlockingStatsDClientBuilder.)
+              (.prefix "statsd")
+              (.hostname "localhost")
+              (.port (Integer. 8125))
+              (.build))))
 
 (defn str-arr [xs]
   (into-array String (map name xs)))

@@ -6,17 +6,17 @@
             :distribution :repo}
   :dependencies [[aleph "0.4.7-alpha9"]
                  [clojure.java-time "0.3.3"]
-                 [com.datadoghq/java-dogstatsd-client "2.13.0"]
-                 [com.github.seancorfield/honeysql "2.1.818"]
-                 [com.github.seancorfield/next.jdbc "1.2.737"]
+                 [com.datadoghq/java-dogstatsd-client "3.0.1"]
+                 [com.github.seancorfield/honeysql "2.1.833"]
+                 [com.github.seancorfield/next.jdbc "1.2.761"]
                  [com.taoensso/timbre "5.1.2"]
                  [commons-codec/commons-codec "1.15"]
                  [environ "1.2.0"]
-                 [metosin/jsonista "0.3.4"]
+                 [metosin/jsonista "0.3.5"]
                  [org.clojure/clojure "1.10.3"]
-                 [org.clojure/core.async "1.3.622"]
+                 [org.clojure/core.async "1.5.648"]
                  [org.clojure/data.csv "1.0.0"]
-                 [org.postgresql/postgresql "42.3.0"]
+                 [org.postgresql/postgresql "42.3.1"]
                  [org.clojure/tools.cli "1.0.206"]]
   :repl-options {:init-ns algo-trader.core}
   :main algo-trader.core

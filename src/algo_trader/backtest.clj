@@ -5,7 +5,7 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [get-target-amts]]
+            [algo-trader.utils :refer [get-target-sizes]]
             [clojure.data.csv :refer [write-csv]]
             [clojure.java.io :as io]
             [java-time :refer [as duration]]
@@ -22,11 +22,11 @@
 (defn run
   "run a backtest for a single market, outputting portfolio prices for each window"
   [market verbose?]
-  (let [target-amt (market (get-target-amts))
+  (let [target-size (market (get-target-sizes))
         m-list [market]]
     (statsd/reset-statsd!)
     (log/info (format "starting backtest for %s" (name market)))
-    (model/initialize {market target-amt})
+    (model/initialize {market target-size})
     (oms/initialize-equity (:test-trading-capital config))
     (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
       (log/info (format "starting equity per market: %,.2f" starting-cash))
@@ -35,7 +35,7 @@
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
           backtest-trades (db/get-trades-memo market begin end)
-          backtest-bars (reverse (bars/generate-bars target-amt backtest-trades))]
+          backtest-bars (reverse (bars/generate-bars target-size backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (with-open [writer (io/writer (format "resources/%s_backtest.csv" (name market)))]
         (write-csv writer (if verbose? [header] [["port-val"]]))
@@ -45,21 +45,21 @@
 
 (defn portfolio-opt-inputs [market]
   (let [m-list [market]
-        target-amt (market (get-target-amts))]
+        target-size (market (get-target-sizes))]
     (statsd/reset-statsd!)
     (log/info (format "starting backtest for %s" (name market)))
     (log/info "fetching trades...")
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
           backtest-trades (db/get-trades market begin end)
-          backtest-bars (reverse (bars/generate-bars target-amt backtest-trades))]
+          backtest-bars (reverse (bars/generate-bars target-size backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (let [all (atom [])
             ws (vec (repeat fc-count 0.0))]
         (doseq [i (range fc-count)
                 :let [a (atom [])]]
           (alter-var-root #'model/weights (fn [_] (assoc ws i 1.0)))
-          (model/initialize {market target-amt})
+          (model/initialize {market target-size})
           (oms/initialize-equity (:test-trading-capital config))
           (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
             (log/info (format "starting equity per market: %,.2f" starting-cash))
@@ -76,6 +76,6 @@
       (log/info (format "tested on %s bars" (count backtest-bars))))))
 
 (defn run-all []
-  (let [markets (keys (get-target-amts))]
+  (let [markets (keys (get-target-sizes))]
     (doseq [market markets]
       (run market false))))

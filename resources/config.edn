@@ -1,7 +1,7 @@
 {
  ;; ftx config
- :ftx-us-api-key ""
- :ftx-us-secret-key ""
+ :ftx-us-api-key "aa"
+ :ftx-us-secret-key "bb"
 
  ;; model params
  :est-bar-mins 1.5 ;; derived from only ftx market share...
@@ -30,9 +30,9 @@
  :taker-fee-bps 0.0 ;; TEMP
 
  ;; trade params
- :target-amts
- {:BTC 1.5E7,
-  :ETH 1.2E7}
+ :target-sizes
+ {:BTC 300
+  :ETH 3000}
  :position-inertia-percent 0.1 ;; minimum position change
  :test-trading-capital 10000.0
 

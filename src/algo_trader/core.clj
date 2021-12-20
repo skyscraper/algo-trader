@@ -18,7 +18,7 @@
             [algo-trader.model :as model]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
-            [algo-trader.utils :refer [generate-channel-map get-target-amts uc-kw market-kw]]
+            [algo-trader.utils :refer [generate-channel-map get-target-sizes uc-kw market-kw]]
             [clojure.core.async :refer [<! go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
@@ -65,10 +65,10 @@
   (log/info (format "Starting trader in %s mode" (if paper? "PAPER" "PRODUCTION")))
   (log/info "Connecting to statsd...")
   (statsd/reset-statsd!)
-  (let [target-amts (get-target-amts)]
-    (reset! markets (keys target-amts))
-    (model/initialize target-amts)
-    (doseq [[market target] target-amts]
+  (let [target-sizes (get-target-sizes)]
+    (reset! markets (keys target-sizes))
+    (model/initialize target-sizes)
+    (doseq [[market target] target-sizes]
       (log/info (format "%s target: %,.2f" (name market) target))))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))

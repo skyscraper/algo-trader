@@ -58,8 +58,8 @@
   (let [n (name spot)]
     (market-kw (subs n 0 (- (count n) 4)))))
 
-(defn get-target-amts []
-  (:target-amts config))
+(defn get-target-sizes []
+  (:target-sizes config))
 
 ;;; core.async ;;;
 (defn generate-channel-map [markets]
