@@ -69,7 +69,7 @@
     (reset! markets (keys target-sizes))
     (model/initialize target-sizes)
     (doseq [[market target] target-sizes]
-      (log/info (format "%s target: %,.2f" (name market) target))))
+      (log/info (format "%s target: %,d" (name market) target))))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
