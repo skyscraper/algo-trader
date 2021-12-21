@@ -1,8 +1,9 @@
 (ns algo-trader.bars
   (:require [algo-trader.config :refer [bar-count fc-count vol-scale-daily vol-alpha window-alphas]]
-            [algo-trader.utils :refer [pct-rtn ewm-step]]))
+            [algo-trader.utils :refer [pct-rtn ewm-step]]
+            [taoensso.timbre :as log]))
 
-(def base {:amt 0.0 :v 0.0 :twobv 0.0})
+(def base {:v 0.0 :twobv 0.0})
 
 (def feature-base {:ewms (vec (repeat fc-count nil))})
 
@@ -10,30 +11,25 @@
   {:current       base
    :bars          '()
    :features-data feature-base
-   :target-size   target-size
-   :last-prices   {}})
+   :target-size   target-size})
 
-(defn update-bar [bar {:keys [price size]} side]
+(defn update-bar [bar {:keys [price size side source]}]
   (-> (update bar :o (fnil identity price))
       (update :h (fnil max price) price)
       (update :l (fnil min price) price)
       (assoc :c price)
-      (update :amt + (* price size))
       (update :v + size)
-      (update :twobv + (* size (if (= :buy side) 2.0 0.0)))))
+      (update :twobv + (* size (condp = side
+                                 :buy 2.0
+                                 :sell 0.0
+                                 (do
+                                   (log/warn "unknown side:" side source)
+                                   0.0))))))
 
 (defn add-to-bars
-  [{:keys [current bars features-data variance target-size last-prices] :as acc}
-   {:keys [source price side] :as trade}]
-  (let [last-price (source last-prices)
-        s (if last-price
-            (cond
-              (> price last-price) :buy
-              (< price last-price) :sell
-              :else side)
-            side)
-        {:keys [o twobv v] :as updated} (update-bar current trade s)
-        new-last-prices (assoc last-prices source price)]
+  [{:keys [current bars features-data variance target-size] :as acc}
+   {:keys [price side] :as trade}]
+  (let [{:keys [o twobv v] :as updated} (update-bar current trade)]
     (if (>= v target-size)
       (let [prev-close (:c (first bars) o)
             {:keys [ewms]} features-data
@@ -50,7 +46,7 @@
                            :last-side (cond
                                         (pos? oi) :buy
                                         (neg? oi) :sell
-                                        :else s)
+                                        :else side)
                            :features new-ewms
                            :sigma sigma
                            :sigma-day sigma-day)]
@@ -58,9 +54,8 @@
          (update acc :bars conj new-bar)
          :current base
          :features-data {:ewms new-ewms}
-         :variance new-variance
-         :last-prices new-last-prices))
-      (assoc acc :current updated :last-prices new-last-prices))))
+         :variance new-variance))
+      (assoc acc :current updated))))
 
 (defn generate-bars [target-size trades]
   (->> (reduce
