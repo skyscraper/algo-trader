@@ -4,7 +4,7 @@
   :license {:name "The MIT License"
             :url "http://opensource.org/licenses/MIT"
             :distribution :repo}
-  :dependencies [[aleph "0.4.7-alpha9"]
+  :dependencies [[aleph "0.4.7-alpha10"]
                  [clojure.java-time "0.3.3"]
                  [com.datadoghq/java-dogstatsd-client "3.0.1"]
                  [com.github.seancorfield/honeysql "2.1.833"]
