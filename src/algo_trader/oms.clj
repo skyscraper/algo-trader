@@ -42,7 +42,7 @@
   [market forecast port-mtm price sigma]
   (let [block-size (get-in config [:block-sizes market])
         vol-scale (vol-scalar port-mtm price block-size sigma)]
-    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scaling-target config))))))
+    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scale-target config))))))
 
 (defn handle-target
   [{:keys [market price forecast sigma]} p]

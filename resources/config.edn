@@ -4,18 +4,17 @@
  :ftx-us-secret-key "bb"
 
  ;; model params
- :est-bar-mins 1.5 ;; derived from only ftx market share...
+ :est-bar-mins 30
  :vol-span 36
  :windows [1.0 3.0 5.0]
 
  ;; scaling
  :scale-span 1000
- :scale-target 5.0 ;; for scaling to a prettier distribution
+ :scale-target 10.0 ;; for scaling to a prettier distribution
  :dynamic-scale? false ;; if false, ignore the above two settings
- :scaling-target 10.0 ;; for targeting
  :scale-cap 20.0
- :starting-scales [6.768 8.376 10.205] ;[12.738 20.325 25.327]
- :weights [0.05 0.9 0.05]
+ :starting-scales [19.4096 30.5772 39.5864]
+ :weights [0.33 0.34 0.33]
  :fdm 1.17
 
  ;; volatility targeting
@@ -30,9 +29,9 @@
  :taker-fee-bps 0.0 ;; TEMP
 
  ;; trade params
- :target-sizes
- {:BTC 500
-  :ETH 5000}
+ :target-sizes ;; derived from est-bar-mins
+ {:BTC 14850
+  :ETH 91500}
  :position-inertia-percent 0.1 ;; minimum position change
  :test-trading-capital 10000.0
 

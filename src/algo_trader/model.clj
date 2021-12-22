@@ -57,8 +57,9 @@
 (defn predict
   "get combined forecast for a market"
   [market {:keys [bars]}]
-  (let [{:keys [features oi sigma-day]} (first bars)]
-    (statsd/gauge :order-imbalance oi [(str "coin" market)])
+  (let [{:keys [features bv sv sigma-day]} (first bars)]
+    (statsd/gauge :buy-volume bv [(str "coin" market)])
+    (statsd/gauge :sell-volume sv [(str "coin" market)])
     (->> features
          (map-indexed
            (fn [idx x]
