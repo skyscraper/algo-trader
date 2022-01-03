@@ -20,10 +20,10 @@
 (defn clean-scales []
   (mapv default-scale (:starting-scales config)))
 
-(defn initialize [target-sizes]
+(defn initialize [target-sizes signal-channels]
   (let [m-data (reduce-kv
                  (fn [acc market target-size]
-                   (assoc acc market (atom (bars/bar-base target-size))))
+                   (assoc acc market (atom (bars/bar-base target-size (market signal-channels)))))
                  {}
                  target-sizes)
         s-data (reduce-kv
@@ -56,40 +56,34 @@
 
 (defn predict
   "get combined forecast for a market"
-  [market {:keys [bars]}]
-  (let [{:keys [features bv sv sigma-day]} (first bars)]
-    (statsd/gauge :buy-volume bv [(str "coin" market)])
-    (statsd/gauge :sell-volume sv [(str "coin" market)])
-    (->> features
-         (map-indexed
-           (fn [idx x]
-             (last ;; last of each tuple, see above
-               (predict-single market sigma-day idx x))))
-         (dot-product weights)
-         (* fdm)
-         (clip fc-cap))))
+  [market features sigma]
+  (->> features
+       (map-indexed
+        (fn [idx x]
+          (last ;; last of each tuple, see above
+           (predict-single market sigma idx x))))
+       (dot-product weights)
+       (* fdm)
+       (clip fc-cap)))
 
-(defn update-and-predict!
-  "update model data and generate prediction"
-  [market trade]
-  (if-let [data (market model-data)]
-    (do
-      (swap! data bars/add-to-bars trade)
-      (if (> (count (:bars @data)) bar-count)
-        [(predict market (swap! data update :bars #(take bar-count %))) true]
-        no-result))
-    no-result))
+(defn handle-signal [market {:keys [price side features sigma]}]
+  (let [forecast (predict market features sigma)]
+    (put! (market oms/oms-channels)
+          {:msg-type :target
+           :market   market
+           :price    price
+           :forecast forecast
+           :side     side
+           :sigma    sigma})))
 
 (defn handle-trade [market {:keys [price side] :as trade}]
-  (let [[forecast real?] (update-and-predict! market trade)]
-    (when real?
-      (put! (market oms/oms-channels)
-            {:msg-type :target
-             :market   market
-             :price    price
-             :forecast forecast
-             :side     side
-             :sigma    (-> model-data market deref :bars first :sigma-day)}))))
+  (when-let [data (market model-data)]
+    (swap! data bars/add-to-bars trade)
+    (when (> (count (:bars @data)) bar-count)
+      (let [{:keys [bars]} (swap! data update :bars #(take bar-count %))
+            {:keys [bv sv]} bars]
+        (statsd/gauge :buy-volume bv [(str "coin" market)])
+        (statsd/gauge :sell-volume sv [(str "coin" market)])))))
 
 (defn fc-scale-val [market features sigma price side]
   (let [xs (map-indexed (fn [idx x] (predict-single market sigma idx x)) features)

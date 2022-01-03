@@ -62,8 +62,11 @@
   (:target-sizes config))
 
 ;;; core.async ;;;
-(defn generate-channel-map [markets]
+(defn generate-channel-map
+  "creates a map of channels with key as the uppercase-keywordized version of markets
+  and value as calling chan-fn"
+  [markets chan-fn]
   (reduce
-    #(assoc %1 (uc-kw %2) (chan 1000))
+    #(assoc %1 (uc-kw %2) (chan-fn))
     {}
     markets))

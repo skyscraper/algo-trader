@@ -35,7 +35,8 @@
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
           backtest-trades (db/get-trades-memo market begin end)
-          backtest-bars (reverse (bars/generate-bars target-size backtest-trades))]
+          signal-channel nil ;; todo
+          backtest-bars (reverse (bars/generate-bars target-size signal-channel backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (with-open [writer (io/writer (format "resources/%s_backtest.csv" (name market)))]
         (write-csv writer (if verbose? [header] [["port-val"]]))
@@ -52,7 +53,8 @@
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
           backtest-trades (db/get-trades market begin end)
-          backtest-bars (reverse (bars/generate-bars target-size backtest-trades))]
+          signal-channel nil ;; todo
+          backtest-bars (reverse (bars/generate-bars target-size signal-channel backtest-trades))]
       (log/info (format "processing %s trades..." (count backtest-trades)))
       (let [all (atom [])
             ws (vec (repeat fc-count 0.0))]
