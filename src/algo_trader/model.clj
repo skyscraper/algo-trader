@@ -1,11 +1,14 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config bar-count default-weights scale-alpha]]
+            [algo-trader.handlers.utils :refer [coin-str side-str]]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product clip ewm-step]]
             [clojure.core.async :refer [put!]]))
 
+(def sig-oi "sigtype:oi")
+(def sig-tr "sigtype:tr")
 (def scale-target (:scale-target config))
 (def scales {})
 (def weights (or (:weights config) default-weights))
@@ -67,14 +70,23 @@
        (clip fc-cap)))
 
 (defn handle-signal [market {:keys [price side features sigma]}]
-  (let [forecast (predict market features sigma)]
+  (let [forecast (predict market features sigma)
+        [oi-signal tr-signal] features]
     (put! (market oms/oms-channels)
           {:msg-type :target
            :market   market
            :price    price
            :forecast forecast
            :side     side
-           :sigma    sigma})))
+           :sigma    sigma})
+    (when (not (zero? oi-signal))
+      (statsd/count :signal 1 [sig-oi
+                               (str coin-str market)
+                               (str side-str (if (pos? oi-signal) :buy :sell))]))
+    (when (not (zero? tr-signal))
+      (statsd/count :signal 1 [sig-tr
+                               (str coin-str market)
+                               (str side-str (if (pos? tr-signal) :buy :sell))]))))
 
 (defn handle-trade [market trade]
   (when-let [data (market model-data)]

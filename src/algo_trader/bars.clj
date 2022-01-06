@@ -1,12 +1,7 @@
 (ns algo-trader.bars
   (:require [algo-trader.config :refer [bar-count vol-scale-daily vol-alpha oi-alpha tr-alpha]]
-            [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn ewm-step]]
-            [algo-trader.handlers.utils :refer [side-str]]
             [clojure.core.async :refer [close! put!]]))
-
-(def sig-oi "sigtype:oi")
-(def sig-tr "sigtype:tr")
 
 (def base {:v 0.0 :buys 0 :sells 0 :bv 0.0 :sv 0.0})
 
@@ -40,11 +35,11 @@
   (when-not (empty? features-data)
     (let [{:keys [abs-oi-mu abs-oi-variance tr-mu tr-variance]} features-data
           {:keys [v buys sells]} current
-          oi (imbalance current)
           oi-signal (if (> v (/ target-size 2)) ;; must see at least half-bar before checking oi
-                      (if (> (Math/abs oi) (+ abs-oi-mu (Math/sqrt abs-oi-variance)))
-                        (if (pos? oi) 1 -1)
-                        0)
+                      (let [oi (imbalance current)]
+                        (if (> (Math/abs oi) (+ abs-oi-mu (Math/sqrt abs-oi-variance)))
+                          (if (pos? oi) 1 -1)
+                          0))
                       0)
           tr (tick-run current)
           tr-signal (if (> tr (+ tr-mu (Math/sqrt tr-variance)))
@@ -54,11 +49,7 @@
         (put! signal-channel {:price price
                               :side side
                               :features [oi-signal tr-signal]
-                              :sigma (:sigma-day (first bars))})
-        (when (not (zero? oi-signal))
-          (statsd/count :signal 1 [sig-oi (str side-str (if (pos? oi-signal) :buy :sell))]))
-        (when (not (zero? tr-signal))
-          (statsd/count :signal 1 [sig-tr (str side-str (if (pos? tr-signal) :buy :sell))]))))))
+                              :sigma (:sigma-day (first bars))})))))
 
 (defn add-to-bars
   [{:keys [current bars features-data variance target-size] :as acc}
