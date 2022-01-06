@@ -1,6 +1,5 @@
 (ns algo-trader.utils
   (:require [algo-trader.config :refer [config vol-scale-annual]]
-            [clojure.core.async :refer [chan]]
             [clojure.string :refer [upper-case]]))
 
 ;;; math ;;;

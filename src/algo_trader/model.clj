@@ -76,14 +76,17 @@
            :side     side
            :sigma    sigma})))
 
-(defn handle-trade [market {:keys [price side] :as trade}]
+(defn handle-trade [market trade]
   (when-let [data (market model-data)]
-    (swap! data bars/add-to-bars trade)
-    (when (> (count (:bars @data)) bar-count)
+    (when (> (count (:bars (swap! data bars/add-to-bars trade))) bar-count)
       (let [{:keys [bars]} (swap! data update :bars #(take bar-count %))
             {:keys [bv sv]} bars]
         (statsd/gauge :buy-volume bv [(str "coin" market)])
         (statsd/gauge :sell-volume sv [(str "coin" market)])))))
+
+;; todo: change below to copy handle-signal and just process inbound data as prediction
+;; then write to csv and update paper port
+;; for backtest, seed this fn in a go loop (should we be concerned with io?)
 
 (defn fc-scale-val [market features sigma price side]
   (let [xs (map-indexed (fn [idx x] (predict-single market sigma idx x)) features)

@@ -16,6 +16,10 @@
 (def vol-scale-annual (Math/sqrt (* 365.0 24.0 (/ 60.0 (:est-bar-mins config)))))
 (def vol-scale-daily (Math/sqrt (* 24.0 (/ 60.0 (:est-bar-mins config)))))
 
+;; temp
+(def oi-alpha (get-alpha 21))
+(def tr-alpha (get-alpha 21))
+
 ;; ewm decay for windows
 (def window-alphas
   (mapv get-alpha (:windows config)))
