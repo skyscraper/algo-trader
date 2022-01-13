@@ -1,5 +1,6 @@
 (ns algo-trader.utils
   (:require [algo-trader.config :refer [config vol-scale-annual]]
+            [clojure.core.async :refer [chan]]
             [clojure.string :refer [upper-case]]))
 
 ;;; math ;;;
@@ -61,11 +62,8 @@
   (:target-sizes config))
 
 ;;; core.async ;;;
-(defn generate-channel-map
-  "creates a map of channels with key as the uppercase-keywordized version of markets
-  and value as calling chan-fn"
-  [markets chan-fn]
+(defn generate-channel-map [markets]
   (reduce
-    #(assoc %1 (uc-kw %2) (chan-fn))
+    #(assoc %1 (uc-kw %2) (chan 1000))
     {}
     markets))

@@ -19,7 +19,7 @@
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [generate-channel-map get-target-sizes uc-kw market-kw]]
-            [clojure.core.async :refer [<! chan go-loop sliding-buffer]]
+            [clojure.core.async :refer [<! go-loop]]
             [clojure.string :refer [join]]
             [clojure.tools.cli :as cli]
             [taoensso.timbre :as log])
@@ -27,13 +27,11 @@
 
 (def markets (atom nil))
 (def trade-channels {})
-(def signal-channels {})
 (def signal (CountDownLatch. 1))
 
-(defn start-handlers
-  "Starts a go-loop and applies a function f to every event received on a given channel.
-   Event types should be homogenous.
-   Also passes the symbol that maps to the channel when calling f."
+(defn start-md-handlers
+  "Starts a go-loop and applies a fn to every event received on a given channel.
+   Event types should be homogenous."
   [f channels]
   (doseq [[sym ch] channels]
     (go-loop []
@@ -53,11 +51,11 @@
    okex/init])
 
 (defn paper-setup []
-  (oms/start-paper-handlers (generate-channel-map @markets (fn [] (chan 1000)))))
+  (oms/start-paper-handlers (generate-channel-map @markets)))
 
 (defn prod-setup []
   (log/info "Subscribing to orders and fills...")
-  (oms/start-oms-handlers (generate-channel-map @markets (fn [] (chan 1000))))
+  (oms/start-oms-handlers (generate-channel-map @markets))
   (ftx-us/init oms/oms-channels))
 
 (defn run
@@ -69,16 +67,11 @@
   (statsd/reset-statsd!)
   (let [target-sizes (get-target-sizes)]
     (reset! markets (keys target-sizes))
+    (model/initialize target-sizes)
     (doseq [[market target] target-sizes]
-      (log/info (format "%s target: %,d" (name market) target)))
-    (log/info "Today we will be trading:" (join ", " (map name @markets)))
-    (alter-var-root #'trade-channels merge (generate-channel-map
-                                            @markets
-                                            (fn [] (chan 1000))))
-    (alter-var-root #'signal-channels merge (generate-channel-map
-                                             @markets
-                                             (fn [] (chan (sliding-buffer 1)))))
-    (model/initialize target-sizes signal-channels))
+      (log/info (format "%s target: %,d" (name market) target))))
+  (log/info "Today we will be trading:" (join ", " (map name @markets)))
+  (alter-var-root #'trade-channels merge (generate-channel-map @markets))
   (log/info "Initializing positions...")
   (oms/initialize-equity hardcoded-eq)
   (let [starting-capital (oms/determine-starting-capital-per-market @markets)]
@@ -88,10 +81,8 @@
   (if paper?
     (paper-setup)
     (prod-setup))
-  (log/info "Starting signal handlers...")
-  (start-handlers model/handle-signal signal-channels)
   (log/info "Starting market data handlers...")
-  (start-handlers model/handle-trade trade-channels)
+  (start-md-handlers model/handle-trade trade-channels)
   (log/info "Connecting to exchanges and subscribing to market data...")
   (doseq [init inits]
     (init trade-channels))

@@ -1,14 +1,11 @@
 (ns algo-trader.model
   (:require [algo-trader.bars :as bars]
             [algo-trader.config :refer [config bar-count default-weights scale-alpha]]
-            [algo-trader.handlers.utils :refer [coin-str side-str]]
             [algo-trader.oms :as oms]
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [dot-product clip ewm-step]]
             [clojure.core.async :refer [put!]]))
 
-(def sig-oi "sigtype:oi")
-(def sig-tr "sigtype:tr")
 (def scale-target (:scale-target config))
 (def scales {})
 (def weights (or (:weights config) default-weights))
@@ -23,10 +20,10 @@
 (defn clean-scales []
   (mapv default-scale (:starting-scales config)))
 
-(defn initialize [target-sizes signal-channels]
+(defn initialize [target-sizes]
   (let [m-data (reduce-kv
                  (fn [acc market target-size]
-                   (assoc acc market (atom (bars/bar-base target-size (market signal-channels)))))
+                   (assoc acc market (atom (bars/bar-base target-size))))
                  {}
                  target-sizes)
         s-data (reduce-kv
@@ -59,46 +56,40 @@
 
 (defn predict
   "get combined forecast for a market"
-  [market features sigma]
-  (->> features
-       (map-indexed
-        (fn [idx x]
-          (last ;; last of each tuple, see above
-           (predict-single market sigma idx x))))
-       (dot-product weights)
-       (* fdm)
-       (clip fc-cap)))
+  [market {:keys [bars]}]
+  (let [{:keys [features bv sv sigma-day]} (first bars)]
+    (statsd/gauge :buy-volume bv [(str "coin" market)])
+    (statsd/gauge :sell-volume sv [(str "coin" market)])
+    (->> features
+         (map-indexed
+           (fn [idx x]
+             (last ;; last of each tuple, see above
+               (predict-single market sigma-day idx x))))
+         (dot-product weights)
+         (* fdm)
+         (clip fc-cap))))
 
-(defn handle-signal [market {:keys [price side features sigma]}]
-  (let [forecast (predict market features sigma)
-        [oi-signal tr-signal] features]
-    (put! (market oms/oms-channels)
-          {:msg-type :target
-           :market   market
-           :price    price
-           :forecast forecast
-           :side     side
-           :sigma    sigma})
-    (when (not (zero? oi-signal))
-      (statsd/count :signal 1 [sig-oi
-                               (str coin-str market)
-                               (str side-str (if (pos? oi-signal) :buy :sell))]))
-    (when (not (zero? tr-signal))
-      (statsd/count :signal 1 [sig-tr
-                               (str coin-str market)
-                               (str side-str (if (pos? tr-signal) :buy :sell))]))))
+(defn update-and-predict!
+  "update model data and generate prediction"
+  [market trade]
+  (if-let [data (market model-data)]
+    (do
+      (swap! data bars/add-to-bars trade)
+      (if (> (count (:bars @data)) bar-count)
+        [(predict market (swap! data update :bars #(take bar-count %))) true]
+        no-result))
+    no-result))
 
-(defn handle-trade [market trade]
-  (when-let [data (market model-data)]
-    (when (> (count (:bars (swap! data bars/add-to-bars trade))) bar-count)
-      (let [{:keys [bars]} (swap! data update :bars #(take bar-count %))
-            {:keys [bv sv]} bars]
-        (statsd/gauge :buy-volume bv [(str "coin" market)])
-        (statsd/gauge :sell-volume sv [(str "coin" market)])))))
-
-;; todo: change below to copy handle-signal and just process inbound data as prediction
-;; then write to csv and update paper port
-;; for backtest, seed this fn in a go loop (should we be concerned with io?)
+(defn handle-trade [market {:keys [price side] :as trade}]
+  (let [[forecast real?] (update-and-predict! market trade)]
+    (when real?
+      (put! (market oms/oms-channels)
+            {:msg-type :target
+             :market   market
+             :price    price
+             :forecast forecast
+             :side     side
+             :sigma    (-> model-data market deref :bars first :sigma-day)}))))
 
 (defn fc-scale-val [market features sigma price side]
   (let [xs (map-indexed (fn [idx x] (predict-single market sigma idx x)) features)

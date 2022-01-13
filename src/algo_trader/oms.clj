@@ -121,8 +121,8 @@
                         clientId order-id)))))
 
 (defn handle-oms-data
-  [market {:keys [msg-type] :as msg}]
-  (let [p (market positions)]
+  [sym {:keys [msg-type] :as msg}]
+  (let [p (sym positions)]
     (condp = msg-type
       :target
       (handle-target msg p)
