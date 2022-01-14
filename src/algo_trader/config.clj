@@ -4,7 +4,7 @@
 (def config (edn/read-string (slurp "resources/config.edn")))
 (def orders-ep "/orders")
 
-(def fc-count (inc (count (:bar-widths config)))) ;; 2 * st + oi
+(def fc-count (inc (count (:bar-widths config)))) ;; st count + oi
 (def bar-count (apply max (:bar-widths config)))
 
 (def default-weights (repeat fc-count (double (/ 1 fc-count))))
