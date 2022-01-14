@@ -4,8 +4,8 @@
 (def config (edn/read-string (slurp "resources/config.edn")))
 (def orders-ep "/orders")
 
-(def fc-count (count (:windows config)))
-(def bar-count (apply max (:windows config)))
+(def fc-count (inc (count (:bar-widths config)))) ;; 2 * st + oi
+(def bar-count (apply max (:bar-widths config)))
 
 (def default-weights (repeat fc-count (double (/ 1 fc-count))))
 
@@ -15,10 +15,6 @@
 (def vol-alpha (get-alpha (:vol-span config)))
 (def vol-scale-annual (Math/sqrt (* 365.0 24.0 (/ 60.0 (:est-bar-mins config)))))
 (def vol-scale-daily (Math/sqrt (* 24.0 (/ 60.0 (:est-bar-mins config)))))
-
-;; ewm decay for windows
-(def window-alphas
-  (mapv get-alpha (:windows config)))
 
 ;; ewm decay for forecast scaling factors
 (def scale-alpha

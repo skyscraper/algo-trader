@@ -6,8 +6,8 @@
             :distribution :repo}
   :dependencies [[aleph "0.4.7-alpha10"]
                  [clojure.java-time "0.3.3"]
-                 [com.datadoghq/java-dogstatsd-client "3.0.1"]
-                 [com.github.seancorfield/honeysql "2.1.833"]
+                 [com.datadoghq/java-dogstatsd-client "4.0.0"]
+                 [com.github.seancorfield/honeysql "2.2.840"]
                  [com.github.seancorfield/next.jdbc "1.2.761"]
                  [com.taoensso/timbre "5.1.2"]
                  [commons-codec/commons-codec "1.15"]
