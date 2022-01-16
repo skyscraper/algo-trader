@@ -25,7 +25,7 @@
     (condp = (keyword type)
       :update (process-orders-fills market (keyword channel) data)
       :partial (log/warn (format "received partial event: %s" payload))
-      :info (do (log/info (format "ftx info: %s %s" code msg))
+      :info (do (log/info (format "ftx us info: %s %s" code msg))
                 (when (= code 20001)
                   (log/info (name exch) "server requested us to reconnect...")
                   (s/close! conn)))
@@ -33,18 +33,22 @@
       :unsubscribed (log/info (format "unsubscribed from %s" channel))
       :error (log/error (format "ftx us error: %s %s" code msg))
       :pong (log/debug "pong")
-      (log/warn (str "unhandled ftx event: " payload)))))
+      (log/warn (str "unhandled ftx us event: " payload)))))
 
 (defn rename [k]
   (keyword (str (name k) "/USD")))
 
-(defn auth []
-  (let [now (System/currentTimeMillis)]
-    {:op   :login
-     :args {:key  (:ftx-us-api-key config)
-            :sign (hmac (ws-sig now))
-            :time now}}))
+(defn auth [subaccount]
+  (let [now (System/currentTimeMillis)
+        args {:key  (:ftx-us-api-key config)
+              :sign (hmac (ws-sig now))
+              :time now}]
+    {:op :login
+     :args (if subaccount
+             (assoc args :subaccount subaccount)
+             args)}))
 
 (defn init [oms-channels]
   (alter-var-root #'info info-map rename oms-channels)
-  (connect! exch url ftx/ws-props ftx/ws-timeout handle (conj [(auth)] fills orders) ftx/ping-params))
+  (connect! exch url ftx/ws-props ftx/ws-timeout handle (conj [(auth (:subaccount config))] fills orders)
+            ftx/ping-params))

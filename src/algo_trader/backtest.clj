@@ -27,10 +27,8 @@
     (statsd/reset-statsd!)
     (log/info (format "starting backtest for %s" (name market)))
     (model/initialize {market target-size})
-    (oms/initialize-equity (:test-trading-capital config))
-    (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
-      (log/info (format "starting equity per market: %,.2f" starting-cash))
-      (oms/initialize-positions m-list starting-cash))
+    (oms/initialize-positions m-list {:USD {:free (:test-trading-capital config)}})
+    (oms/determine-starting-capital-per-market)
     (log/info "fetching trades...")
     (let [end (db/get-last-ts market)
           begin (- end (as (duration (:total-days config) :days) :millis))
@@ -60,10 +58,8 @@
                 :let [a (atom [])]]
           (alter-var-root #'model/weights (fn [_] (assoc ws i 1.0)))
           (model/initialize {market target-size})
-          (oms/initialize-equity (:test-trading-capital config))
-          (let [starting-cash (oms/determine-starting-capital-per-market [m-list])]
-            (log/info (format "starting equity per market: %,.2f" starting-cash))
-            (oms/initialize-positions m-list starting-cash))
+          (oms/initialize-positions m-list {:USD {:free (:test-trading-capital config)}})
+          (oms/determine-starting-capital-per-market)
           (let [record-fn (fn [[x]] (swap! a conj x))]
             (model/evaluate-model market backtest-bars record-fn false))
           (swap! all conj @a))

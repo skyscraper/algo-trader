@@ -1,8 +1,9 @@
 (ns algo-trader.core
   (:gen-class)
-  (:require [algo-trader.db :as db]
+  (:require [algo-trader.api :refer [ftx-us-sync]]
+            [algo-trader.db :as db]
             [algo-trader.backtest :as backtest]
-            [algo-trader.config :refer [hardcoded-eq]]
+            [algo-trader.config :refer [config wallet-ep hardcoded-eq]]
             [algo-trader.handlers
              [binance :as binance]
              [binance-inv :as binance-inv]
@@ -29,6 +30,14 @@
 (def trade-channels {})
 (def signal (CountDownLatch. 1))
 
+(defn get-ftx-balances []
+  (let [res (:result (ftx-us-sync :GET wallet-ep nil true (:subaccount config)))]
+    (reduce
+     (fn [acc {:keys [coin] :as x}]
+       (assoc acc (keyword coin) x))
+     {}
+     res)))
+
 (defn start-md-handlers
   "Starts a go-loop and applies a fn to every event received on a given channel.
    Event types should be homogenous."
@@ -51,11 +60,19 @@
    okex/init])
 
 (defn paper-setup []
+  (log/info "Initializing positions...")
+  (oms/initialize-positions @markets {:USD {:free hardcoded-eq}})
+  (oms/determine-starting-capital-per-market)
+  (log/info "Starting OMS handlers...")
   (oms/start-paper-handlers (generate-channel-map @markets)))
 
 (defn prod-setup []
+  (log/info "Initializing positions...")
+  (oms/initialize-positions @markets (get-ftx-balances))
+  (oms/determine-starting-capital-per-market)
   (log/info "Subscribing to orders and fills...")
   (oms/start-oms-handlers (generate-channel-map @markets))
+  (log/info "Starting OMS handlers...")
   (ftx-us/init oms/oms-channels))
 
 (defn run
@@ -72,12 +89,6 @@
       (log/info (format "%s target: %,d" (name market) target))))
   (log/info "Today we will be trading:" (join ", " (map name @markets)))
   (alter-var-root #'trade-channels merge (generate-channel-map @markets))
-  (log/info "Initializing positions...")
-  (oms/initialize-equity hardcoded-eq)
-  (let [starting-capital (oms/determine-starting-capital-per-market @markets)]
-    (log/info (format "starting capital per market: %,.2f" starting-capital))
-    (oms/initialize-positions @markets starting-capital))
-  (log/info "Starting OMS handlers...")
   (if paper?
     (paper-setup)
     (prod-setup))

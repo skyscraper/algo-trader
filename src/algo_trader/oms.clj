@@ -4,6 +4,7 @@
             [algo-trader.statsd :as statsd]
             [algo-trader.utils :refer [pct-rtn vol-scalar]]
             [clojure.core.async :refer [<! go-loop]]
+            [clojure.string :refer [split]]
             [java-time :refer [instant]]
             [taoensso.timbre :as log])
   (:import (java.util UUID)))
@@ -11,28 +12,31 @@
 (def non-inflight-statuses #{:closed :local-cancel})
 (def oms-channels {})
 (def positions {})
-(def equity (atom 0.0))
-(def starting-capital-per-market (atom 0.0))                              ;; testing
+(def starting-capital-by-market (atom {}))
 
-(defn initialize-equity [eq]
-  (reset! equity eq))
-
-(defn initialize-positions [markets starting-capital]
-  (alter-var-root
-    #'positions
-    #(reduce
-       (fn [acc x]
-         (assoc acc x (atom {:cash            starting-capital
-                             :shares          0.0
-                             :port-val        starting-capital
-                             :order-id        nil
-                             :order-inflight? false
-                             :order-submit-ts nil})))
+(defn initialize-positions [markets balances]
+  (let [free-cash (/ (get-in balances [:USD :free] 0.0) (count markets))]
+    (alter-var-root
+     #'positions
+     #(reduce
+       (fn [acc market]
+         (assoc acc market
+                (atom {:cash free-cash
+                       :shares (get-in balances [market :total] 0.0)
+                       :port-val (+ free-cash (get-in balances [market :usdValue] 0.0))
+                       :order-id nil
+                       :order-inflight? false
+                       :order-submit-ts nil})))
        %
-       markets)))
+       markets))))
 
-(defn determine-starting-capital-per-market [markets]
-  (reset! starting-capital-per-market (/ @equity (count markets))))
+(defn determine-starting-capital-per-market []
+  (reset! starting-capital-by-market
+          (reduce-kv
+           (fn [acc k v]
+             (assoc acc k (:port-val @v)))
+           {}
+           positions)))
 
 (defn get-target
   "block size is the min size increment for the underlying (ftx.us)
@@ -41,8 +45,11 @@
    adjust to the actual decimal"
   [market forecast port-mtm price sigma]
   (let [block-size (get-in config [:block-sizes market])
-        vol-scale (vol-scalar port-mtm price block-size sigma)]
-    (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scale-target config))))))
+        vol-scale (vol-scalar port-mtm price block-size sigma)
+        target (* block-size (Math/round ^double (/ (* forecast vol-scale) (:scale-target config))))]
+    (if (:long-only config)
+      (max 0.0 target)
+      target)))
 
 (defn handle-target
   [{:keys [market price forecast sigma]} p]
@@ -84,25 +91,26 @@
 (defn handle-fill
   "updates portfolio values"
   [{:keys [market fee price size] :as msg} p]
-  (let [side (keyword (:side msg))
+  (let [coin (first (split market #"/")) ;; only place we need to do this
+        side (keyword (:side msg))
         match-time (.toEpochMilli (instant (:time msg)))
         delta-cash (* size price (if (= side :buy) 1 -1))
         delta-shares (if (= side :buy) size (- size))
         {:keys [port-val order-submit-ts]}
         (swap!
-          p
-          (fn [{:keys [cash shares] :as x}]
-            (let [new-cash (- cash delta-cash fee)
-                  new-shares (+ shares delta-shares)
-                  pos-val (* new-shares price)
-                  port-val (+ pos-val new-cash)]
-              (assoc x :cash new-cash :shares new-shares :port-val port-val))))]
-    (log/info (format "received FILL %s %d @ $%d" (name market) size price))
-    (statsd/gauge :port-val (pct-rtn @starting-capital-per-market port-val) (list market))
+         p
+         (fn [{:keys [cash shares] :as x}]
+           (let [new-cash (- cash delta-cash fee)
+                 new-shares (+ shares delta-shares)
+                 pos-val (* new-shares price)
+                 port-val (+ pos-val new-cash)]
+             (assoc x :cash new-cash :shares new-shares :port-val port-val))))]
+    (log/info (format "received FILL %s %d @ $%d" (name coin) size price))
+    (statsd/gauge :port-val (pct-rtn (coin @starting-capital-by-market) port-val) (list coin))
     (statsd/distribution
-      :match-time
-      (- match-time order-submit-ts)
-      nil)
+     :match-time
+     (- match-time order-submit-ts)
+     nil)
     (statsd/count :fill-received 1 (list symbol))))
 
 (defn handle-order-update
@@ -178,7 +186,7 @@
 
 (defn handle-paper-target [{:keys [market price forecast side sigma]} p]
   (let [port-val (update-paper-port! market price forecast side sigma p)]
-    (statsd/gauge :port-val (pct-rtn @starting-capital-per-market port-val) (list market))))
+    (statsd/gauge :port-val (pct-rtn (market @starting-capital-by-market) port-val) (list market))))
 
 (defn handle-paper-data [sym {:keys [msg-type] :as msg}]
   (let [p (sym positions)]

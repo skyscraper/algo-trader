@@ -63,7 +63,7 @@
 
 (defn fetch-and-store [market lookback-days append?]
   (let [underlying (underlying-kw market)
-        path (format "/markets/%s/trades" (name market))
+        path (format "/api/markets/%s/trades" (name market))
         limit 100
         delta (* lookback-days 24 60 60)
         now (long (/ (System/currentTimeMillis) 1000))

@@ -2,7 +2,8 @@
   (:require [clojure.edn :as edn]))
 
 (def config (edn/read-string (slurp "resources/config.edn")))
-(def orders-ep "/orders")
+(def orders-ep "/api/orders")
+(def wallet-ep "/api/wallet/balances")
 
 (def fc-count (inc (count (:bar-widths config)))) ;; st count + oi
 (def bar-count (apply max (:bar-widths config)))

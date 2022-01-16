@@ -2,9 +2,10 @@
  ;; ftx config
  :ftx-us-api-key "aa"
  :ftx-us-secret-key "bb"
+ :subaccount "bot"
 
  ;; model params
- :est-bar-mins 15
+ :est-bar-mins 10
  :vol-span 36
  :bar-widths [1.0 4.0 16.0]
  :atr-length 10.0
@@ -15,12 +16,12 @@
  :scale-target 10.0
  :dynamic-scale? true ;; if false, ignore the above two settings
  :scale-cap 20.0
- :starting-scales [0.15 0.15 0.15 9.92]
+ :starting-scales [0.15 0.15 0.15 8.88]
  :weights [0.3 0.3 0.3 0.1]
  :fdm 1.17
 
  ;; volatility targeting
- :volatility-target 0.75
+ :volatility-target 3.00
  :block-sizes ;; aka sizeIncrement
  {:ETH 0.001
   :BTC 0.0001} ;; might want to fetch programmatically in future...
@@ -32,10 +33,11 @@
 
  ;; trade params
  :target-sizes ;; derived from est-bar-mins
- {:BTC 7425
-  :ETH 45750}
+ {:BTC 4950
+  :ETH 30500}
  :position-inertia-percent 0.1 ;; minimum position change
  :test-trading-capital 10000.0
+ :long-only true ;; true until we apply for margin
 
  ;; backtesting
  :total-days 7
