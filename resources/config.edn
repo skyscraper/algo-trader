@@ -37,7 +37,7 @@
   :ETH 30500}
  :position-inertia-percent 0.1 ;; minimum position change
  :test-trading-capital 10000.0
- :long-only true ;; true until we apply for margin
+ :long-only false ;; false during initial test
 
  ;; backtesting
  :total-days 7

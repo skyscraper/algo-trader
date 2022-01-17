@@ -52,7 +52,7 @@
    binance-inv/init
    bybit/init
    bybit-inv/init
-   deribit/init
+   ;deribit/init ; seems to require auth now
    ftx/init
    huobi/init
    huobi-inv/init
