@@ -1,0 +1,44 @@
+{
+ ;; ftx config
+ :ftx-us-api-key "YOUR_API_KEY_HERE"
+ :ftx-us-secret-key "YOUR_SECRET_KEY_HERE"
+ :subaccount "YOUR_SUBACCOUNT_NAME_HERE"
+
+ ;; model params
+ :est-bar-mins 10
+ :vol-span 36
+ :bar-widths [1.0 4.0 16.0]
+ :atr-length 10.0
+ :factor 3.0
+
+ ;; scaling
+ :scale-span 1000
+ :scale-target 10.0
+ :dynamic-scale? true ;; if false, ignore the above two settings
+ :scale-cap 20.0
+ :starting-scales [0.15 0.15 0.15 8.88]
+ :weights [0.3 0.3 0.3 0.1]
+ :fdm 1.17
+
+ ;; volatility targeting
+ :volatility-target 3.00
+ :block-sizes ;; aka sizeIncrement
+ {:ETH 0.001
+  :BTC 0.0001} ;; might want to fetch programmatically in future...
+
+ ;; slippage
+ :same-slippage-bps 0.0
+ :opp-slippage-bps 5.0
+ :taker-fee-bps 20.0
+
+ ;; trade params
+ :target-sizes ;; derived from est-bar-mins
+ {:BTC 4950
+  :ETH 30500}
+ :position-inertia-percent 0.1 ;; minimum position change
+ :test-trading-capital 10000.0
+ :long-only false ;; false during initial test
+
+ ;; backtesting
+ :total-days 7
+ }
